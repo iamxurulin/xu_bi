@@ -1,0 +1,8 @@
+# 公共配置文件
+
+spring:
+  application:
+    name: xubibackend
+  # 默认 dev 环境
+  profiles:
+    active: local
