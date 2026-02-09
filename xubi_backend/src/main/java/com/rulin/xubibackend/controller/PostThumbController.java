@@ -2,6 +2,8 @@ package com.rulin.xubibackend.controller;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+
+import com.rulin.xubibackend.model.entity.User;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -13,7 +15,6 @@ import com.rulin.xubibackend.common.ErrorCode;
 import com.rulin.xubibackend.common.ResultUtils;
 import com.rulin.xubibackend.exception.BusinessException;
 import com.rulin.xubibackend.model.dto.postthumb.PostThumbAddRequest;
-import com.rulin.xubibackend.model.entity.User;
 import com.rulin.xubibackend.service.PostThumbService;
 import com.rulin.xubibackend.service.UserService;
 

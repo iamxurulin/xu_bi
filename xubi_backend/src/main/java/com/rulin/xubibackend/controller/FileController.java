@@ -6,6 +6,8 @@ import java.io.File;
 import java.util.Arrays;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+
+import com.rulin.xubibackend.model.entity.User;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,7 +23,6 @@ import com.rulin.xubibackend.constant.FileConstant;
 import com.rulin.xubibackend.exception.BusinessException;
 import com.rulin.xubibackend.manager.CosManager;
 import com.rulin.xubibackend.model.dto.file.UploadFileRequest;
-import com.rulin.xubibackend.model.entity.User;
 import com.rulin.xubibackend.model.enums.FileUploadBizEnum;
 import com.rulin.xubibackend.service.UserService;
 

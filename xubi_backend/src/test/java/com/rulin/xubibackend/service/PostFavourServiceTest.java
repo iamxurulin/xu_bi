@@ -3,8 +3,6 @@ package com.rulin.xubibackend.service;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.rulin.xubibackend.model.entity.Post;
-import com.rulin.xubibackend.model.entity.User;
-import com.rulin.xubibackend.service.PostFavourService;
 
 import javax.annotation.Resource;
 import org.junit.jupiter.api.Assertions;

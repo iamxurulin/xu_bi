@@ -1,5 +1,6 @@
 package com.rulin.xubibackend.aop;
 
+import com.rulin.xubibackend.model.entity.User;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
@@ -11,7 +12,6 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import com.rulin.xubibackend.annotation.AuthCheck;
 import com.rulin.xubibackend.common.ErrorCode;
 import com.rulin.xubibackend.exception.BusinessException;
-import com.rulin.xubibackend.model.entity.User;
 import com.rulin.xubibackend.model.enums.UserRoleEnum;
 import com.rulin.xubibackend.service.UserService;
 

@@ -6,9 +6,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
-import com.rulin.xubibackend.model.entity.User;
-import com.rulin.xubibackend.service.PostThumbService;
-
 /**
  * 帖子点赞服务测试
  *
