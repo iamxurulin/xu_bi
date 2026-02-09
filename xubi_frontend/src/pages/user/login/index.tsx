@@ -18,9 +18,10 @@ import {
 import { Helmet, useModel } from '@umijs/max';
 import { Alert, App, Tabs } from 'antd';
 import { createStyles } from 'antd-style';
-import React, { useState } from 'react';
+import React, {useEffect, useState} from 'react';
 import { flushSync } from 'react-dom';
 import Settings from '../../../../config/defaultSettings';
+import {listChartByPageUsingPost} from "@/services/xubi/chartController";
 const useStyles = createStyles(({ token }) => {
   return {
     action: {
@@ -68,7 +69,7 @@ const ActionIcons = () => {
 };
 const Lang = () => {
   const { styles } = useStyles();
-  return;
+  return null;
 };
 const LoginMessage: React.FC<{
   content: string;
@@ -90,6 +91,14 @@ const Login: React.FC = () => {
   const { initialState, setInitialState } = useModel('@@initialState');
   const { styles } = useStyles();
   const { message } = App.useApp();
+
+  useEffect(()=>{
+    listChartByPageUsingPost({}).then(res=>{
+      console.error('res',res)
+    })
+  },[])
+
+
   const fetchUserInfo = async () => {
     const userInfo = await initialState?.fetchUserInfo?.();
     if (userInfo) {
