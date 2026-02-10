@@ -1,5 +1,8 @@
 export default [
    {name:'欢迎页面',path: '/welcome', icon: 'smile', component: './Welcome'},
+  {path: '/',redirect: '/add_chart'},
+  { name: '智能分析',path: '/add_chart',icon:'smile',
+    component: './AddChart'},
   {
     path: '/admin',
     icon: 'crown',
@@ -102,7 +105,6 @@ export default [
         ],
       },
       {path: '/list', redirect: '/list/table-list'},
-      {name: '查询表格', icon: 'smile', path: '/list/table-list', component: './table-list'},
       {name: '标准列表', icon: 'smile', path: '/list/basic-list', component: './list/basic-list'},
       {name: '卡片列表', icon: 'smile', path: '/list/card-list', component: './list/card-list'},
     ],

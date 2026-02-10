@@ -6,7 +6,7 @@ import type {RequestConfig, RunTimeLayoutConfig} from "@umijs/max";
 import {history, Link} from "@umijs/max";
 import {errorConfig} from "./requestConfig";
 import {getLoginUserUsingGet} from "@/services/xubi/userController";
-
+import { App } from 'antd';
 import type { Settings as LayoutSettings } from '@ant-design/pro-components';
 
 const isDev = process.env.NODE_ENV === "development" || process.env.CI;
@@ -102,7 +102,7 @@ export async function getInitialState(): Promise<{
       childrenRender: (children) => {
         // if (initialState?.loading) return <PageLoading />;
         return (
-          <>
+          <App>
             {children}
             {isDev && (
               <SettingDrawer
@@ -117,7 +117,7 @@ export async function getInitialState(): Promise<{
                 }}
               />
             )}
-          </>
+          </App>
         );
       },
       ...initialState?.settings,
