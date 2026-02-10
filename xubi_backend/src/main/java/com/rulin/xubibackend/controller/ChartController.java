@@ -13,15 +13,18 @@ import com.rulin.xubibackend.constant.FileConstant;
 import com.rulin.xubibackend.constant.UserConstant;
 import com.rulin.xubibackend.exception.BusinessException;
 import com.rulin.xubibackend.exception.ThrowUtils;
+import com.rulin.xubibackend.manager.AiManager;
 import com.rulin.xubibackend.model.dto.chart.*;
 import com.rulin.xubibackend.model.dto.file.UploadFileRequest;
 import com.rulin.xubibackend.model.entity.Chart;
 import com.rulin.xubibackend.model.entity.User;
 import com.rulin.xubibackend.model.enums.FileUploadBizEnum;
+import com.rulin.xubibackend.model.vo.BiResponse;
 import com.rulin.xubibackend.service.ChartService;
 import com.rulin.xubibackend.service.UserService;
 import com.rulin.xubibackend.utils.ExcelUtils;
 import com.rulin.xubibackend.utils.SqlUtils;
+import javafx.beans.binding.StringBinding;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -50,6 +53,8 @@ public class ChartController {
     @Resource
     private UserService userService;
 
+    @Resource
+    private AiManager aiManager;
     private final static Gson GSON = new Gson();
 
     // region 增删改查
@@ -254,8 +259,8 @@ public class ChartController {
      * @return
      */
     @PostMapping("/gen")
-    public BaseResponse<String> genChartByAi(@RequestPart("file") MultipartFile multipartFile,
-                                             GenChartByAiRequest genChartByAiRequest, HttpServletRequest request) {
+    public BaseResponse<BiResponse> genChartByAi(@RequestPart("file") MultipartFile multipartFile,
+                                                 GenChartByAiRequest genChartByAiRequest, HttpServletRequest request) {
         String name = genChartByAiRequest.getName();
         String goal = genChartByAiRequest.getGoal();
         String chartType = genChartByAiRequest.getChartType();
@@ -267,16 +272,17 @@ public class ChartController {
         //如果名称不为空，并且名称长度大于100，就抛出异常，并给出提示
         ThrowUtils.throwIf(StringUtils.isNotBlank(name) && name.length()>100,ErrorCode.PARAMS_ERROR,"名称过长");
 
-        //用户输入
-        StringBuilder userInput  = new StringBuilder();
-        userInput.append("你是一个数据分析师，接下来我会给你我的分析目标和原始数据，请告诉我分析结论。").append("\n");
-        userInput.append("分析目标").append(goal).append("\n");
+//        //用户输入
+//        StringBuilder userInput  = new StringBuilder();
+//        userInput.append("你是一个数据分析师，接下来我会给你我的分析目标和原始数据，请告诉我分析结论。").append("\n");
+//        userInput.append("分析目标").append(goal).append("\n");
+//
+//
+//        //压缩后的数据（把multipartFile传进来，其他的东西先注释）
+//        String result = ExcelUtils.excelToCsv(multipartFile);
+//        userInput.append("数据：").append(result).append("\n");
+//        return ResultUtils.success(userInput.toString());
 
-
-        //压缩后的数据（把multipartFile传进来，其他的东西先注释）
-        String result = ExcelUtils.excelToCsv(multipartFile);
-        userInput.append("数据：").append(result).append("\n");
-        return ResultUtils.success(userInput.toString());
 //        //读取到用户上传的excel文件，进行一个处理
 //        User loginUser = userService.getLoginUser(request);
 //        // 文件目录：根据业务、用户来划分
@@ -298,5 +304,66 @@ public class ChartController {
 //                }
 //            }
 //        }
+
+        //通过response对象拿到用户id（必须登录才能使用）
+        User loginUser = userService.getLoginUser(request);
+
+        //指定一个模型id（把id写死，也可以定义成一个常量）
+        long biModelId = CommonConstant.BI_MODEL_ID;
+
+        //构造用户输入
+        StringBuilder userInput = new StringBuilder();
+        userInput.append("分析需求：").append("\n");
+
+        //拼接分析目标
+        String userGoal = goal;
+
+        //如果图表类型不为空
+        if(StringUtils.isNotBlank(chartType)){
+            //就将分析目标拼接上“请使用”+图表类型
+            userGoal += ".请使用"+chartType;
+        }
+
+        userInput.append(userGoal).append("\n");
+        userInput.append("原始数据：").append("\n");
+
+        //压缩后的数据（把multipartFile传进来）
+        String csvData = ExcelUtils.excelToCsv(multipartFile);
+        userInput.append(csvData).append("\n");
+
+        //拿到返回结果
+        String result = aiManager.sendMsgToXunFeiSpark(true,userInput.toString());
+
+        //对返回结果做拆分，按照5个中括号进行拆分
+        String[] splits = result.split("【【【【");
+        //拆分之后还要进行校验
+        if(splits.length<3){
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR,"AI 生成错误");
+        }
+
+        String genChart = splits[1].trim();
+
+        String genResult = splits[2].trim();
+
+        //插入到数据库
+        Chart chart = new Chart();
+
+        chart.setName(name);
+        chart.setGoal(goal);
+        chart.setChartData(csvData);
+        chart.setChartType(chartType);
+        chart.setGenChart(genChart);
+        chart.setGenResult(genResult);
+        chart.setUserId(loginUser.getId());
+
+        boolean saveResult = chartService.save(chart);
+        ThrowUtils.throwIf(!saveResult,ErrorCode.SYSTEM_ERROR,"图表保存失败");
+        BiResponse biResponse = new BiResponse();
+
+        biResponse.setGenChart(genChart);
+        biResponse.setGenResult(genResult);
+        biResponse.setChartId(chart.getId());
+
+        return ResultUtils.success(biResponse);
     }
 }
