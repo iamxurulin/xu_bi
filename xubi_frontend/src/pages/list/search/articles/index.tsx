@@ -239,7 +239,7 @@ const Articles: FC = () => {
                 }
                 description={
                   <span>
-                    <Tag>Ant Design</Tag>
+                    <Tag>智能 BI </Tag>
                     <Tag>设计语言</Tag>
                     <Tag>蚂蚁金服</Tag>
                   </span>

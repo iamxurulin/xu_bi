@@ -116,7 +116,7 @@ const Welcome: React.FC = () => {
               color: token.colorTextHeading,
             }}
           >
-            欢迎使用 Ant Design Pro
+            欢迎使用 智能 BI
           </div>
           <p
             style={{
@@ -128,7 +128,7 @@ const Welcome: React.FC = () => {
               width: '65%',
             }}
           >
-            Ant Design Pro 是一个整合了 umi，Ant Design 和 ProComponents
+            智能 BI  是一个整合了 umi，Ant Design 和 ProComponents
             的脚手架方案。致力于在设计规范和基础组件的基础上，继续向上构建，提炼出典型模板/业务组件/配套设计资源，进一步提升企业级中后台产品设计研发过程中的『用户』和『设计者』的体验。
           </p>
           <div
@@ -146,7 +146,7 @@ const Welcome: React.FC = () => {
             />
             <InfoCard
               index={2}
-              title="了解 ant design"
+              title="了解 智能 BI "
               href="https://ant.design"
               desc="antd 是基于 Ant Design 设计体系的 React UI 组件库，主要用于研发企业级中后台产品。"
             />
