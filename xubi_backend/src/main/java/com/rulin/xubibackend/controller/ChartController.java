@@ -1,5 +1,6 @@
 package com.rulin.xubibackend.controller;
 
+import cn.hutool.core.io.FileUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.google.gson.Gson;
@@ -9,25 +10,21 @@ import com.rulin.xubibackend.common.DeleteRequest;
 import com.rulin.xubibackend.common.ErrorCode;
 import com.rulin.xubibackend.common.ResultUtils;
 import com.rulin.xubibackend.constant.CommonConstant;
-import com.rulin.xubibackend.constant.FileConstant;
 import com.rulin.xubibackend.constant.UserConstant;
 import com.rulin.xubibackend.exception.BusinessException;
 import com.rulin.xubibackend.exception.ThrowUtils;
 import com.rulin.xubibackend.manager.AiManager;
+import com.rulin.xubibackend.manager.RedisLimiterManager;
 import com.rulin.xubibackend.model.dto.chart.*;
-import com.rulin.xubibackend.model.dto.file.UploadFileRequest;
 import com.rulin.xubibackend.model.entity.Chart;
 import com.rulin.xubibackend.model.entity.User;
-import com.rulin.xubibackend.model.enums.FileUploadBizEnum;
 import com.rulin.xubibackend.model.vo.BiResponse;
 import com.rulin.xubibackend.service.ChartService;
 import com.rulin.xubibackend.service.UserService;
 import com.rulin.xubibackend.utils.ExcelUtils;
 import com.rulin.xubibackend.utils.SqlUtils;
-import javafx.beans.binding.StringBinding;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
-import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
@@ -35,7 +32,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
-import java.io.File;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * 帖子接口
@@ -55,6 +53,10 @@ public class ChartController {
 
     @Resource
     private AiManager aiManager;
+
+    @Resource
+    private RedisLimiterManager redisLimiterManager;
+
     private final static Gson GSON = new Gson();
 
     // region 增删改查
@@ -305,8 +307,25 @@ public class ChartController {
 //            }
 //        }
 
+        //校验文件，首先拿到用户请求的文件，取到原始文件大小
+        long size = multipartFile.getSize();
+        String originalFilename = multipartFile.getOriginalFilename();
+
+        //校验文件大小
+        final long ONE_MB = 1024*1024L;
+
+        ThrowUtils.throwIf(size>ONE_MB,ErrorCode.PARAMS_ERROR,"文件超过1M");
+
+        String suffix = FileUtil.getSuffix(originalFilename);
+
+        final List<String> validFileSuffixList = Arrays.asList("png","jpg","svg","webp","jpeg");
+        ThrowUtils.throwIf(!validFileSuffixList.contains(suffix),ErrorCode.PARAMS_ERROR,"文件后缀非法");
+
         //通过response对象拿到用户id（必须登录才能使用）
         User loginUser = userService.getLoginUser(request);
+
+        //限流判断，每个用户一个限流器
+        redisLimiterManager.doRateLimit("genChartByAi_"+loginUser.getId());
 
         //指定一个模型id（把id写死，也可以定义成一个常量）
         long biModelId = CommonConstant.BI_MODEL_ID;
@@ -358,6 +377,8 @@ public class ChartController {
 
         boolean saveResult = chartService.save(chart);
         ThrowUtils.throwIf(!saveResult,ErrorCode.SYSTEM_ERROR,"图表保存失败");
+
+
         BiResponse biResponse = new BiResponse();
 
         biResponse.setGenChart(genChart);
