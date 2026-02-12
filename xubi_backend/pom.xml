@@ -18,6 +18,14 @@
         <java.version>1.8</java.version>
     </properties>
     <dependencies>
+
+        <!-- https://mvnrepository.com/artifact/com.rabbitmq/amqp-client -->
+        <dependency>
+            <groupId>com.rabbitmq</groupId>
+            <artifactId>amqp-client</artifactId>
+            <version>5.17.0</version>
+        </dependency>
+
         <!--Redisson-操作Redis的工具库-->
         <dependency>
             <groupId>org.redisson</groupId>
