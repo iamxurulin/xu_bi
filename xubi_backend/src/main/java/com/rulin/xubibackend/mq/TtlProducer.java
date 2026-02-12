@@ -1,5 +1,6 @@
 package com.rulin.xubibackend.mq;
 
+import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
@@ -17,7 +18,11 @@ public class TtlProducer {
             Channel channel = connection.createChannel()) {
 //            channel.queueDeclare(QUEUE_NAME, false, false, false, null);
             String message = "Hello World!";
-            channel.basicPublish("", QUEUE_NAME, null, message.getBytes(StandardCharsets.UTF_8));
+
+            AMQP.BasicProperties properties = new AMQP.BasicProperties.Builder()
+                    .expiration("1000")
+                            .build();
+            channel.basicPublish("my-exchange", "routing-key",properties,  message.getBytes(StandardCharsets.UTF_8));
             System.out.println(" [x] Sent '" + message + "'");
         }
     }
