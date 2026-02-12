@@ -1,22 +1,20 @@
-import {genChartByAiUsingPost} from '@/services/xubi/chartController';
+import {genChartByAiAsyncUsingPost} from '@/services/xubi/chartController';
 import {UploadOutlined} from '@ant-design/icons';
-import {App,Button, Card, Col, Divider, Form, Input, message, Row, Select, Space, Spin, Upload} from 'antd';
+import {App, Button, Card, Form, Input, Select, Space, Upload} from 'antd';
 import TextArea from 'antd/es/input/TextArea';
 import React, {useState} from 'react';
-
-import ReactECharts from 'echarts-for-react';
+import {useForm} from "antd/es/form/Form";
 
 /**
- * 添加图表页面
+ * 添加图表（异步）页面
  *
  * @constructor
  */
-const AddChart: React.FC = () => {
+const AddChartAsync: React.FC = () => {
   //  使用 useApp 获取上下文感知的 message 实例
   const { message } = App.useApp();
-  //定义状态，用来接收后端的返回值，让它实时展示在页面上
-  const [chart,setChart] = useState<API.BiResponse>();
-  const [option,setOption] = useState<any>();
+
+  const [form] = useForm();
 
   //提交中的状态，默认未提交
   const [submitting,setSubmitting] = useState<boolean>(false);
@@ -42,10 +40,7 @@ const AddChart: React.FC = () => {
     //当开始提交，把submitting设置为true
     setSubmitting(true);
 
-    //如果提交了，把图表数据和图表代码清空掉，防止和之前提交的图标堆叠在一起
-    //如果option清空了，组件就会触发重新渲染，就不会保留之前的历史记录
-    setChart(undefined);
-    setOption(undefined);
+
 
     //对接后端，上传数据
     const  params = {
@@ -55,49 +50,14 @@ const AddChart: React.FC = () => {
 
     try{
       //需要取到上传的原始数据file->file->originFileObj(原始数据)
-      const res = await genChartByAiUsingPost(params, {}, values.file[0].originFileObj);
+      const res = await genChartByAiAsyncUsingPost(params, {}, values.file[0].originFileObj);
       //正常情况下，如果没有返回值就分析失败，有，就分析成功
       if(!res?.data){
         message.error('分析失败');
       }else{
-        message.success('分析成功');
-
-        const rawGenChart = res.data.genChart ?? '';
-
-        // 1. 寻找 JSON 的“左大括号”和“右大括号”的位置
-        const jsonStart = rawGenChart.indexOf('{');
-        const jsonEnd = rawGenChart.lastIndexOf('}');
-
-        let chartOption;
-
-        if (jsonStart !== -1 && jsonEnd !== -1) {
-          // 2. 截取这两个括号中间的内容（包含括号）
-          // 这样可以完美避开 AI 生成的 ```json ... ``` 或者其他多余文字
-          const jsonString = rawGenChart.substring(jsonStart, jsonEnd + 1);
-
-          try {
-            // 3. 尝试解析截取后的字符串
-            chartOption = JSON.parse(jsonString);
-          } catch (e) {
-            console.error('JSON截取后解析依然失败:', jsonString);
-            throw new Error('JSON 格式错误');
-          }
-        } else {
-          throw new Error('AI 未返回有效的 JSON 格式');
-        }
-
-        //解析成对象，为空则设为空字符串
-        //const chartOption = JSON.parse(res.data.genChart?? '');
-
-        //如果为空，则抛出异常，并提示‘图表代码解析错误’
-        if(!chartOption){
-          throw new Error('图表代码解析错误')
-          //如果成功
-        }else{
-          //从后端得到响应结果之后，把响应结果设置到图表状态里
-          setChart(res.data);
-          setOption(chartOption);
-        }
+        message.success('分析任务提交成功，稍后请在我的图表页面查看');
+        //重置所有字段
+        form.resetFields();
       }
 
       //异常情况下，提示分析失败+具体失败原因
@@ -111,14 +71,12 @@ const AddChart: React.FC = () => {
   };
 
   return (
-    // 把页面内容指定一个类名add-chart
-    <div className="add-chart">
-      {/* 变成两列 gutter 列与列之间的间隔*/}
-      <Row gutter={24}>
-        {/* 表单放在第一列，卡片组件里 */}
-        <Col span={12}>
+    // 把页面内容指定一个类名add-chart-async
+    <div className="add-chart-async">
+
           <Card title="智能分析">
             <Form
+              form={form}
               // 表单名称为addChart
               name="addChart"
 
@@ -192,31 +150,9 @@ const AddChart: React.FC = () => {
               </Form.Item>
             </Form>
           </Card>
-        </Col>
-
-        {/* 分析结论和图表放在第二列 */}
-        <Col span={12}>
-          <Card title = "分析结论">
-            {chart?.genResult??<div> 请先在左侧进行提交</div>}
-
-            <Spin spinning = {submitting}/>
-
-          </Card>
-
-          <Divider />
-
-          <Card title="可视化图表">
-            {
-              option ? <ReactECharts option={option} /> : <div> 请先在左侧进行提交</div>
-            }
-
-            <Spin spinning = {submitting}/>
-          </Card>
-        </Col>
-      </Row>
 
     </div>
 
   );
 };
-export default AddChart;
+export default AddChartAsync;

@@ -29,6 +29,7 @@ import org.apache.commons.collections4.map.HashedMap;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
+import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -48,6 +49,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 @RestController
 @RequestMapping("/queue")
 @Slf4j
+@Profile({"local"})
 public class QueueController {
 
     @Resource
