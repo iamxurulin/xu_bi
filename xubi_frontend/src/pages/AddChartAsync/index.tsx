@@ -1,4 +1,4 @@
-import {genChartByAiAsyncUsingPost} from '@/services/xubi/chartController';
+import {genChartByAiAsyncMqUsingPost, genChartByAiAsyncUsingPost} from '@/services/xubi/chartController';
 import {UploadOutlined} from '@ant-design/icons';
 import {App, Button, Card, Form, Input, Select, Space, Upload} from 'antd';
 import TextArea from 'antd/es/input/TextArea';
@@ -50,7 +50,7 @@ const AddChartAsync: React.FC = () => {
 
     try{
       //需要取到上传的原始数据file->file->originFileObj(原始数据)
-      const res = await genChartByAiAsyncUsingPost(params, {}, values.file[0].originFileObj);
+      const res = await genChartByAiAsyncMqUsingPost(params, {}, values.file[0].originFileObj);
       //正常情况下，如果没有返回值就分析失败，有，就分析成功
       if(!res?.data){
         message.error('分析失败');
