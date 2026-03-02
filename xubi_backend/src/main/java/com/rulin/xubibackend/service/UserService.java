@@ -12,18 +12,18 @@ import javax.servlet.http.HttpServletRequest;
 import me.chanjar.weixin.common.bean.WxOAuth2UserInfo;
 
 /**
- * 用户服务
- *
- *
+ * 用户服务接口，继承自IService<User>，提供用户相关的业务操作
  */
 public interface UserService extends IService<User> {
 
     /**
-     * 用户注册
+     * 用户注册方法
+     * 用于创建新用户账户并进行必要的校验
+
      *
-     * @param userAccount   用户账户
+     * @param userAccount   用户账户名
      * @param userPassword  用户密码
-     * @param checkPassword 校验密码
+     * @param checkPassword 校验密码，需与用户密码一致
      * @return 新用户 id
      */
     long userRegister(String userAccount, String userPassword, String checkPassword);

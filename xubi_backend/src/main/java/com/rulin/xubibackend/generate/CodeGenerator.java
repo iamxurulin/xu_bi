@@ -12,35 +12,44 @@ import java.util.Map;
 import java.io.FileWriter;
 import java.io.Writer;
 
+
+import freemarker.template.Configuration;
+import freemarker.template.Template;
+import freemarker.template.TemplateException;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 /**
- * 代码生成器
- *
+ * 代码生成器类
+ * 用于根据模板自动生成各种类型的代码文件，如Controller、Service、DTO、VO等
  */
 public class CodeGenerator {
 
     /**
-     * 用法：修改生成参数和生成路径，注释掉不需要的生成逻辑，然后运行即可
-     *
-     * @param args
-     * @throws TemplateException
-     * @throws IOException
+     * 主方法，程序的入口点
+     * 用于设置生成参数并调用生成方法
+     * @param args 命令行参数
+     * @throws TemplateException 模板处理异常
+     * @throws IOException IO异常
      */
     public static void main(String[] args) throws TemplateException, IOException {
         // 指定生成参数
-        String packageName = "com.rulin.xubibackend";
-        String dataName = "用户评论";
-        String dataKey = "userComment";
-        String upperDataKey = "UserComment";
+        String packageName = "com.rulin.xubibackend";    // 包名
+        String dataName = "用户评论";                   // 数据名称
+        String dataKey = "userComment";                 // 数据键名（小写）
+        String upperDataKey = "UserComment";            // 数据键名（首字母大写）
 
         // 封装生成参数
         Map<String, Object> dataModel = new HashMap<>();
-        dataModel.put("packageName", packageName);
-        dataModel.put("dataName", dataName);
-        dataModel.put("dataKey", dataKey);
-        dataModel.put("upperDataKey", upperDataKey);
+        dataModel.put("packageName", packageName);      // 添加包名到数据模型
+        dataModel.put("dataName", dataName);            // 添加数据名称到数据模型
+        dataModel.put("dataKey", dataKey);              // 添加数据键名到数据模型
+        dataModel.put("upperDataKey", upperDataKey);     // 添加首字母大写的键名到数据模型
 
         // 生成路径默认值
-        String projectPath = System.getProperty("user.dir");
+        String projectPath = System.getProperty("user.dir");  // 获取当前项目路径
         // 参考路径，可以自己调整下面的 outputPath
         String inputPath = projectPath + File.separator + "src/main/resources/templates/模板名称.java.ftl";
         String outputPath = String.format("%s/generator/包名/%s类后缀.java", projectPath, upperDataKey);
@@ -88,13 +97,13 @@ public class CodeGenerator {
     }
 
     /**
-     * 生成文件
-     *
+     * 生成文件的核心方法
+     * 根据模板文件和数据模型生成目标文件
      * @param inputPath  模板文件输入路径
      * @param outputPath 输出路径
-     * @param model      数据模型
-     * @throws IOException
-     * @throws TemplateException
+     * @param model      数据模型，包含模板所需的所有变量
+     * @throws IOException IO异常
+     * @throws TemplateException 模板处理异常
      */
     public static void doGenerate(String inputPath, String outputPath, Object model) throws IOException, TemplateException {
         // new 出 Configuration 对象，参数为 FreeMarker 版本号

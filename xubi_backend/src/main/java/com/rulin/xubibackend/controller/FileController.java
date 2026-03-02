@@ -26,10 +26,10 @@ import com.rulin.xubibackend.model.dto.file.UploadFileRequest;
 import com.rulin.xubibackend.model.enums.FileUploadBizEnum;
 import com.rulin.xubibackend.service.UserService;
 
+
 /**
- * 文件接口
- *
- *
+ * 文件控制器类
+ * 处理文件上传等相关操作
  */
 @RestController
 @RequestMapping("/file")
@@ -37,32 +37,36 @@ import com.rulin.xubibackend.service.UserService;
 public class FileController {
 
     @Resource
-    private UserService userService;
+    private UserService userService; // 用户服务，用于获取登录用户信息
 
     @Resource
-    private CosManager cosManager;
+    private CosManager cosManager; // COS对象存储管理器，用于文件上传
 
     /**
-     * 文件上传
-     *
-     * @param multipartFile
-     * @param uploadFileRequest
-     * @param request
-     * @return
+     * 文件上传接口
+     * @param multipartFile 上传的文件
+     * @param uploadFileRequest 上传文件请求参数，包含业务类型等信息
+     * @param request HTTP请求对象，用于获取用户登录信息
+     * @return 返回文件在COS中的访问地址
      */
     @PostMapping("/upload")
     public BaseResponse<String> uploadFile(@RequestPart("file") MultipartFile multipartFile,
             UploadFileRequest uploadFileRequest, HttpServletRequest request) {
+        // 获取业务类型并进行校验
         String biz = uploadFileRequest.getBiz();
         FileUploadBizEnum fileUploadBizEnum = FileUploadBizEnum.getEnumByValue(biz);
         if (fileUploadBizEnum == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
+        // 校验文件合法性
         validFile(multipartFile, fileUploadBizEnum);
+        // 获取当前登录用户
         User loginUser = userService.getLoginUser(request);
-        // 文件目录：根据业务、用户来划分
+        // 生成8位随机字母数字组合作为UUID
         String uuid = RandomStringUtils.randomAlphanumeric(8);
+        // 拼接生成新的文件名，格式为"UUID-原始文件名"
         String filename = uuid + "-" + multipartFile.getOriginalFilename();
+        // 构建文件存储路径，格式为"/业务类型/用户ID/文件名"
         String filepath = String.format("/%s/%s/%s", fileUploadBizEnum.getValue(), loginUser.getId(), filename);
         File file = null;
         try {
@@ -86,23 +90,28 @@ public class FileController {
         }
     }
 
-    /**
-     * 校验文件
-     *
-     * @param multipartFile
-     * @param fileUploadBizEnum 业务类型
-     */
+/**
+ * 验证上传文件的方法
+ * @param multipartFile 上传的文件对象
+ * @param fileUploadBizEnum 文件上传业务类型枚举
+ */
     private void validFile(MultipartFile multipartFile, FileUploadBizEnum fileUploadBizEnum) {
         // 文件大小
         long fileSize = multipartFile.getSize();
         // 文件后缀
         String fileSuffix = FileUtil.getSuffix(multipartFile.getOriginalFilename());
+        // 定义常量：1M的大小（以字节为单位）
         final long ONE_M = 1024 * 1024L;
+        // 判断文件上传业务类型是否为用户头像
         if (FileUploadBizEnum.USER_AVATAR.equals(fileUploadBizEnum)) {
+            // 检查文件大小是否超过1M
             if (fileSize > ONE_M) {
+                // 如果文件大小超过限制，抛出业务异常，提示文件大小不能超过1M
                 throw new BusinessException(ErrorCode.PARAMS_ERROR, "文件大小不能超过 1M");
             }
+            // 检查文件后缀是否在允许的类型列表中
             if (!Arrays.asList("jpeg", "jpg", "svg", "png", "webp").contains(fileSuffix)) {
+                // 如果文件类型不在允许列表中，抛出业务异常，提示文件类型错误
                 throw new BusinessException(ErrorCode.PARAMS_ERROR, "文件类型错误");
             }
         }

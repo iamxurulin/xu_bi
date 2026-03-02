@@ -4,11 +4,12 @@ import java.io.Serializable;
 import java.util.Date;
 import lombok.Data;
 
+
 /**
- * 已登录用户视图（脱敏）
- *
- *
- **/
+ * 登录用户视图对象，用于封装登录用户的相关信息
+ * 该类实现了Serializable接口，支持序列化操作
+ * 使用了@Data注解，可能来自Lombok库，自动生成getter、setter等方法
+ */
 @Data
 public class LoginUserVO implements Serializable {
 

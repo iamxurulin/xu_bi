@@ -42,9 +42,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadPoolExecutor;
 
 /**
- * 队列测试
- *
- *
+ * 队列控制器类，提供线程池任务的添加和状态查询功能
+ * 仅在local环境下激活
  */
 @RestController
 @RequestMapping("/queue")
@@ -53,8 +52,12 @@ import java.util.concurrent.ThreadPoolExecutor;
 public class QueueController {
 
     @Resource
-    private ThreadPoolExecutor threadPoolExecutor;
+    private ThreadPoolExecutor threadPoolExecutor; // 线程池执行器
 
+    /**
+     * 添加任务到线程池
+     * @param name 任务名称
+     */
     @GetMapping("/add")//接收一个参数name，然后将任务添加到线程池中
     public void add(String name){
         //使用CompletableFuture运行一个异步任务
@@ -63,13 +66,17 @@ public class QueueController {
             log.info("任务执行中："+name+"，执行人："+Thread.currentThread().getName());
 
             try{
-                Thread.sleep(600000);
+                Thread.sleep(600000); // 模拟任务执行，休眠600秒
             }catch (InterruptedException e){
-                e.printStackTrace();
+                e.printStackTrace(); // 打印中断异常信息
             }
         },threadPoolExecutor);
     }
 
+    /**
+     * 获取线程池状态信息
+     * @return 包含线程池各项状态信息的JSON字符串
+     */
     @GetMapping("/get")
     //该方法返回线程池的状态信息
     public String get(){

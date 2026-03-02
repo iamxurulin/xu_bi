@@ -4,9 +4,8 @@ import java.io.Serializable;
 import lombok.Data;
 
 /**
- * 用户更新请求
- *
- *
+ * 用户更新请求类
+ * 用于封装用户更新请求的数据，实现了Serializable接口以支持序列化
  */
 @Data
 public class UserUpdateRequest implements Serializable {

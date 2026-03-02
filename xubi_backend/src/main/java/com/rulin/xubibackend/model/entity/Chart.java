@@ -10,8 +10,9 @@ import java.io.Serializable;
 import java.util.Date;
 
 /**
- * 图表信息表
- * @TableName chart
+ * Chart实体类，用于表示图表信息表
+ * 使用了Lombok的@Data注解自动生成getter、setter等方法
+ * 使用了MyBatis-Plus的@TableName注解指定对应的数据库表名
  */
 @TableName(value = "chart")
 @Data

@@ -9,12 +9,13 @@ import lombok.Data;
 import java.io.Serializable;
 import java.util.Date;
 
-/**
- * 用户
- * @TableName user
+/*
+ * 用户实体类
+ * 使用MyBatis-Plus的注解进行映射
+ * 实现Serializable接口以支持序列化
  */
-@TableName(value = "user")
-@Data
+@TableName(value = "user") // 指定对应的数据库表名为"user"
+@Data // Lombok注解，自动生成getter、setter等方法
 public class User implements Serializable {
     /**
      * id

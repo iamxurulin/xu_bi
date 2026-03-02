@@ -5,9 +5,8 @@ import com.rulin.xubibackend.constant.CommonConstant;
 import lombok.Data;
 
 /**
- * 分页请求
- *
-*
+ * 分页请求类
+ * 使用@Data注解来自动生成getter、setter、toString等方法
  */
 @Data
 public class PageRequest {

@@ -5,11 +5,11 @@ import lombok.Data;
 import java.io.Serializable;
 
 /**
- * 编辑请求
- *
- *
+ * 图表编辑请求类
+ * 用于封装图表编辑相关的请求参数
+ * 实现了Serializable接口，支持序列化操作
  */
-@Data
+@Data  // 使用Lombok的@Data注解，自动生成getter、setter、toString等方法
 public class ChartEditRequest implements Serializable {
 
     /**

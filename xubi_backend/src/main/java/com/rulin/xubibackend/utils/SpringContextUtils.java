@@ -7,15 +7,24 @@ import org.springframework.context.ApplicationContextAware;
 import org.springframework.stereotype.Component;
 
 /**
- * Spring 上下文获取工具
- *
- *
+ * Spring上下文工具类，用于获取Spring容器中的Bean
+ * 实现了ApplicationContextAware接口，以便获取Spring上下文
  */
 @Component
 public class SpringContextUtils implements ApplicationContextAware {
 
+    /**
+     * Spring上下文对象，静态变量，以便在整个应用程序中共享
+     */
     private static ApplicationContext applicationContext;
 
+    /**
+     * 实现ApplicationContextAware接口的方法
+     * 将Spring上下文注入到静态变量中
+     *
+     * @param applicationContext Spring上下文对象
+     * @throws BeansException 如果获取上下文失败则抛出此异常
+     */
     @Override
     public void setApplicationContext(@NotNull ApplicationContext applicationContext) throws BeansException {
         SpringContextUtils.applicationContext = applicationContext;

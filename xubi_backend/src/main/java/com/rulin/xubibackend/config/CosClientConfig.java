@@ -11,42 +11,40 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * 腾讯云对象存储客户端
- *
- *
+ * 腾讯云对象存储(COS)客户端配置类
+ * 使用@Configuration注解表明这是一个配置类
+ * 使用@ConfigurationProperties注解将配置文件中以"cos.client"为前缀的属性注入到此类中
+ * 使用@Data注解为类自动生成getter、setter等方法
  */
 @Configuration
 @ConfigurationProperties(prefix = "cos.client")
 @Data
 public class CosClientConfig {
 
-    /**
-     * accessKey
-     */
+    // 腾讯云访问密钥ID
     private String accessKey;
 
-    /**
-     * secretKey
-     */
+    // 腾讯云访问密钥Secret
     private String secretKey;
 
-    /**
-     * 区域
-     */
+    // COS地域信息
     private String region;
 
-    /**
-     * 桶名
-     */
+    // 存储桶名称
     private String bucket;
 
+    /**
+     * 创建并配置COSClient Bean
+     * @return 配置好的COSClient实例
+     */
     @Bean
     public COSClient cosClient() {
-        // 初始化用户身份信息(secretId, secretKey)
+
+        // 初始化腾讯云凭证
         COSCredentials cred = new BasicCOSCredentials(accessKey, secretKey);
-        // 设置bucket的区域, COS地域的简称请参照 https://www.qcloud.com/document/product/436/6224
+        // 初始化客户端配置，设置地域信息
         ClientConfig clientConfig = new ClientConfig(new Region(region));
-        // 生成cos客户端
+        // 返回配置好的COSClient实例
         return new COSClient(cred, clientConfig);
     }
 }
