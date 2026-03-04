@@ -1,5 +1,9 @@
 # 智能BI数据分析平台
 
+## 项目地址
+
+【[智能 BI](https://forkless-sueann-aglimmer.ngrok-free.dev/)】
+
 ## 项目展示图
 
 ![](./Figure/登录页.jpg)
