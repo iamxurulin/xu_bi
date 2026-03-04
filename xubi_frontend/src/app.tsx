@@ -130,7 +130,7 @@ export async function getInitialState(): Promise<{
    * @doc https://umijs.org/docs/max/request#配置
    */
   export const request: RequestConfig = {
-    baseURL: "http://localhost:8101",
+    //baseURL: "http://localhost:8101",
     withCredentials: true,
     ...errorConfig,
   };

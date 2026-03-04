@@ -1,11 +1,12 @@
 // https://umijs.org/config/
 
-import { defineConfig } from '@umijs/max';
-import { join } from 'node:path';
+import {defineConfig} from '@umijs/max';
+import {join} from 'node:path';
 import defaultSettings from './defaultSettings';
 import proxy from './proxy';
 import routes from './routes';
-const { REACT_APP_ENV = 'dev' } = process.env;
+
+const {REACT_APP_ENV = 'dev'} = process.env;
 
 /**
  * @name 使用公共路径
@@ -56,7 +57,16 @@ export default defineConfig({
    * @doc 代理介绍 https://umijs.org/docs/guides/proxy
    * @doc 代理配置 https://umijs.org/docs/api/config#proxy
    */
-  proxy: proxy[REACT_APP_ENV as keyof typeof proxy],
+  proxy: {
+    '/api/': {
+      target: 'http://localhost:8101',
+      changeOrigin: true,
+      pathRewrite: {'^/api': '/api'},  // 通常保持 /api，視後端實際路由而定
+      // 或 pathRewrite: { '^/api': '' } 如果後端路由不帶 /api
+    },
+    //[REACT_APP_ENV as keyof typeof proxy]
+  },
+
   /**
    * @name 快速热更新配置
    * @description 一个不错的热更新组件，更新时可以保留 state
