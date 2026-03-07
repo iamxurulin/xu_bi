@@ -399,6 +399,9 @@ public class ChartController {
         chart.setGenResult(genResult);
         chart.setUserId(loginUser.getId());
 
+        // ✅✅✅ 【新增这一行】同步调用成功后，必须手动设为成功状态
+        chart.setStatus("succeed");
+
         boolean saveResult = chartService.save(chart);
         ThrowUtils.throwIf(!saveResult, ErrorCode.SYSTEM_ERROR, "图表保存失败");
 
