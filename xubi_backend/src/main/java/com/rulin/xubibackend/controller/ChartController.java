@@ -378,7 +378,7 @@ public class ChartController {
         //调用 AI
         String result = aiManager.sendMsgToXunFeiSpark(true, userInput.toString());
 
-        //对返回结果做拆分，按照5个中括号进行拆分
+        //对返回结果做拆分，按照4个中括号进行拆分
         String[] splits = result.split("【【【【");
         //拆分之后还要进行校验
         if (splits.length < 3) {
