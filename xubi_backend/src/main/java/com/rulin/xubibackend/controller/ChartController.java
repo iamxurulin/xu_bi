@@ -180,6 +180,35 @@ public class ChartController {
         return ResultUtils.success(chart);
     }
 
+    /**
+     * 根据ID获取图表原始 CSV 数据，仅图表创建者或管理员可访问
+     *
+     * @param id      图表ID
+     * @param request HTTP请求对象，用于获取登录用户
+     * @return BaseResponse<String> 返回图表的 chartData 字符串（CSV）
+     */
+    @GetMapping("/data/{id}")
+    public BaseResponse<String> getChartDataById(@PathVariable long id, HttpServletRequest request) {
+        // 参数校验
+        if (id <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        // 查询图表
+        Chart chart = chartService.getById(id);
+        ThrowUtils.throwIf(chart == null, ErrorCode.NOT_FOUND_ERROR);
+
+        // 获取当前登录用户
+        User loginUser = userService.getLoginUser(request);
+
+        // 只有创建者或管理员可以查看原始数据
+        if (!chart.getUserId().equals(loginUser.getId()) && !userService.isAdmin(request)) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
+        }
+
+        // 返回 chartData 字段（可能为 null 或空字符串）
+        return ResultUtils.success(chart.getChartData());
+    }
+
 
     /**
      * 分页查询图表列表接口

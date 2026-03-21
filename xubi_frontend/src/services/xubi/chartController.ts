@@ -194,6 +194,17 @@ export async function getChartByIdUsingGet(
   });
 }
 
+/** getChartData GET /api/chart/data/{id} */
+export async function getChartDataUsingGet(
+  id: number,
+  options?: { [key: string]: any }
+) {
+  return request<API.BaseResponseString_>(`/api/chart/data/${id}`, {
+    method: "GET",
+    ...(options || {}),
+  });
+}
+
 /** listChartByPage POST /api/chart/list/page */
 export async function listChartByPageUsingPost(
   body: API.ChartQueryRequest,

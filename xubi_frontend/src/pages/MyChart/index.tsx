@@ -1,9 +1,10 @@
-import {listMyChartByPageUsingPost} from '@/services/xubi/chartController';
-import {Avatar, Card, List, message, Result} from 'antd';
+import {listMyChartByPageUsingPost, getChartDataUsingGet} from '@/services/xubi/chartController';
+import {Avatar, Card, List, message, Result, Modal, Button, Table, Spin} from 'antd';
 import React, {useEffect, useState} from 'react';
 import ReactECharts from "echarts-for-react";
 import {useModel} from "@@/exports";
 import Search from "antd/es/input/Search";
+import { csvToTable } from '@/utils/csv';
 
 /**
  * 我的图表页面
@@ -33,6 +34,19 @@ const MyChartPage: React.FC = () => {
 
   const [loading, setLoading] = useState<boolean>(true);
 
+  // 控制查看原始数据弹窗
+  const [isModalVisible, setIsModalVisible] = useState<boolean>(false);
+  // 当前选中图表的原始 CSV 字符串
+  const [currentChartData, setCurrentChartData] = useState<string>('');
+  // 请求原始数据加载状态（可配合 fetchingId 做单卡片 loading）
+  const [loadingData, setLoadingData] = useState<boolean>(false);
+  const [fetchingId, setFetchingId] = useState<number | null>(null);
+  // Table 数据
+  const [tableColumns, setTableColumns] = useState<any[]>([]);
+  const [tableDataSource, setTableDataSource] = useState<any[]>([]);
+  // 表尾汇总（如班级平均分/最高分/最低分）
+  const [tableSummaryRows, setTableSummaryRows] = useState<any[]>([]);
+
   const loadData = async () => {
     setLoading(true);
     try {
@@ -57,6 +71,38 @@ const MyChartPage: React.FC = () => {
   useEffect(() => {
     loadData();
   }, [searchParams]);
+
+  // 使用 utils 中的 csvToTable 返回 columns/dataSource
+
+  /**
+   * 点击“查看原始数据”按钮时调用，按 id 请求后端 CSV 文本
+   */
+  const handleViewData = async (id?: number) => {
+    if (!id) {
+      message.error('图表 ID 不存在');
+      return;
+    }
+    setLoadingData(true);
+    setFetchingId(id);
+    try {
+      const res = await getChartDataUsingGet(id);
+      if (res && (res as any).data !== undefined) {
+        const csvText = (res as any).data ?? '';
+          setCurrentChartData(csvText);
+          const { columns, dataSource, summary } = csvToTable(csvText);
+          setTableColumns(columns);
+          setTableDataSource(dataSource);
+          setTableSummaryRows(summary || []);
+          setIsModalVisible(true);
+      } else {
+        message.error('获取原始数据失败');
+      }
+    } catch (e: any) {
+      message.error('获取原始数据失败，' + e?.message);
+    }
+    setLoadingData(false);
+    setFetchingId(null);
+  };
 
   return (
     // 把页面内容指定一个类名add-chart
@@ -137,7 +183,7 @@ const MyChartPage: React.FC = () => {
                         {item.goal}
                       </div>
 
-                      <div style={{ width: '100%', height: '350px' }}>
+                              <div style={{ width: '100%', height: '350px', position: 'relative' }}>
                         {/* 使用立即执行函数来处理 try-catch */}
                         {(() => {
                           try {
@@ -160,6 +206,13 @@ const MyChartPage: React.FC = () => {
                           }
                         })()}
                       </div>
+                      {/* 左上角按钮 */}
+                      <div style={{ position: 'absolute', right: 12, top: 12, zIndex: 1000 }}>
+                        <Button size="small" onClick={() => handleViewData(item.id as number)}
+                                loading={loadingData && fetchingId === (item.id as number)}>
+                          查看原始数据
+                        </Button>
+                      </div>
                     </>
                   )}
                   {
@@ -177,6 +230,52 @@ const MyChartPage: React.FC = () => {
             </List.Item>
           )}
       />
+
+      {/* 原始数据 Modal */}
+      <Modal
+        title="原始数据"
+        visible={isModalVisible}
+        onCancel={() => setIsModalVisible(false)}
+        footer={null}
+        width={900}
+      >
+        {loadingData ? (
+          <div style={{ textAlign: 'center', padding: 24 }}>
+            <Spin />
+          </div>
+        ) : (
+          <>
+            {tableColumns && tableColumns.length > 0 ? (
+              <>
+                <Table
+                  columns={tableColumns}
+                  dataSource={tableDataSource}
+                  pagination={{ pageSize: 50 }}
+                  // 允许横向滚动以支持宽列与手动拉伸/查看完整内容
+                  scroll={{ x: tableColumns.reduce((s, c) => s + (c.width || 120), 0), y: 300 }}
+                  size="small"
+                />
+                {/* 如果存在汇总行，单独展示在表格下方 */}
+                {tableSummaryRows && tableSummaryRows.length > 0 && (
+                  <div style={{ marginTop: 12 }}>
+                    <div style={{ fontWeight: 600, marginBottom: 8 }}>汇总</div>
+                    <Table
+                      columns={tableColumns}
+                      dataSource={tableSummaryRows}
+                      pagination={false}
+                      // 同步使用横向滚动，使汇总列不被截断
+                      scroll={{ x: tableColumns.reduce((s, c) => s + (c.width || 120), 0) }}
+                      size="small"
+                    />
+                  </div>
+                )}
+              </>
+            ) : (
+              <pre style={{ maxHeight: 400, overflow: 'auto' }}>{currentChartData || '无原始数据'}</pre>
+            )}
+          </>
+        )}
+      </Modal>
     </div>
   );
 };
