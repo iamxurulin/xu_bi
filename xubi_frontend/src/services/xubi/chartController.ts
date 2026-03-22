@@ -249,3 +249,18 @@ export async function updateChartUsingPost(
     ...(options || {}),
   });
 }
+
+/** retryFailedChart POST /api/chart/gen/retry */
+export async function retryFailedChartUsingPost(
+  body: API.DeleteRequest,
+  options?: { [key: string]: any }
+) {
+  return request<API.BaseResponseBoolean_>("/api/chart/gen/retry", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    data: body,
+    ...(options || {}),
+  });
+}

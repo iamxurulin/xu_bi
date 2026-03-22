@@ -699,4 +699,47 @@ public class ChartController {
             log.error("更新图表失败状态失败" + chartId + "," + execMessage);
         }
     }
+
+    /**
+     * 重试生成失败的图表
+     *
+     * @param deleteRequest 包含图表ID的请求体
+     * @param request       HTTP请求对象，用于获取用户信息
+     * @return BaseResponse<Boolean> 返回操作结果，成功为true，失败为false
+     */
+    @PostMapping("/gen/retry")
+    public BaseResponse<Boolean> retryFailedChart(@RequestBody DeleteRequest deleteRequest, HttpServletRequest request) {
+        // 检查请求参数是否有效
+        if (deleteRequest == null || deleteRequest.getId() <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        // 从请求中获取登录用户信息
+        User user = userService.getLoginUser(request);
+        // 获取要重试的图表ID
+        long id = deleteRequest.getId();
+        // 从数据库中获取指定ID的图表信息
+        Chart oldChart = chartService.getById(id);
+        // 如果图表不存在，抛出"未找到"异常
+        ThrowUtils.throwIf(oldChart == null, ErrorCode.NOT_FOUND_ERROR);
+        // 仅本人或管理员可重试 - 检查当前用户是否为图表所有者或管理员
+        if (!oldChart.getUserId().equals(user.getId()) && !userService.isAdmin(request)) {
+            // 如果用户既不是图表所有者也不是管理员，抛出"无权限"异常
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
+        }
+        // 核心校验：只有当图表的status为failed时，才允许重试
+        if (!"failed".equals(oldChart.getStatus())) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "只有失败状态的图表才能重试");
+        }
+        // 将图表的status重新更新为wait，清空之前的错误信息execMessage
+        Chart updateChart = new Chart();
+        updateChart.setId(id);
+        updateChart.setStatus("wait");
+        updateChart.setExecMessage(null);
+        boolean updateResult = chartService.updateById(updateChart);
+        ThrowUtils.throwIf(!updateResult, ErrorCode.OPERATION_ERROR, "更新图表状态失败");
+        // 复用现有的消息队列机制，将图表ID再次发送到RabbitMQ中
+        biMessageProducer.sendMessage(String.valueOf(id));
+        // 返回成功响应
+        return ResultUtils.success(true);
+    }
 }

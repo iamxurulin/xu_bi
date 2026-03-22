@@ -1,4 +1,4 @@
-import {listMyChartByPageUsingPost, getChartDataUsingGet} from '@/services/xubi/chartController';
+import {listMyChartByPageUsingPost, getChartDataUsingGet, retryFailedChartUsingPost} from '@/services/xubi/chartController';
 import {Avatar, Card, List, message, Result, Modal, Button, Table, Spin} from 'antd';
 import React, {useEffect, useState} from 'react';
 import ReactECharts from "echarts-for-react";
@@ -46,6 +46,11 @@ const MyChartPage: React.FC = () => {
   const [tableDataSource, setTableDataSource] = useState<any[]>([]);
   // 表尾汇总（如班级平均分/最高分/最低分）
   const [tableSummaryRows, setTableSummaryRows] = useState<any[]>([]);
+
+  // 重试按钮加载状态
+  const [retryLoading, setRetryLoading] = useState<boolean>(false);
+  // 当前正在重试的图表ID
+  const [retryingId, setRetryingId] = useState<number | null>(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -102,6 +107,40 @@ const MyChartPage: React.FC = () => {
     }
     setLoadingData(false);
     setFetchingId(null);
+  };
+
+  /**
+   * 点击"重试"按钮时调用，重试生成失败的图表
+   */
+  const handleRetryChart = (id?: number) => {
+    if (!id) {
+      message.error('图表 ID 不存在');
+      return;
+    }
+    // 弹出确认框
+    Modal.confirm({
+      title: '确认重试',
+      content: '确定要重试生成此图表吗？',
+      onOk: async () => {
+        setRetryLoading(true);
+        setRetryingId(id);
+        try {
+          const res = await retryFailedChartUsingPost({ id });
+          if (res.data) {
+            message.success('重试任务已提交');
+            // 刷新列表
+            loadData();
+          } else {
+            message.error('重试失败');
+          }
+        } catch (e: any) {
+          message.error('重试失败，' + e?.message);
+        } finally {
+          setRetryLoading(false);
+          setRetryingId(null);
+        }
+      },
+    });
   };
 
   return (
@@ -223,6 +262,12 @@ const MyChartPage: React.FC = () => {
                         title="图表生成失败"
                         subTitle={item.execMessage}
                       />
+                      <div style={{ position: 'absolute', right: 12, top: 12, zIndex: 1000 }}>
+                        <Button size="small" onClick={() => handleRetryChart(item.id as number)}
+                                loading={retryLoading && retryingId === (item.id as number)}>
+                          重试
+                        </Button>
+                      </div>
                     </>
                   }
                 </>
