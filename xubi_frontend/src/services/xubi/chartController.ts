@@ -17,6 +17,20 @@ export async function addChartUsingPost(
   });
 }
 
+/** getChartDataById GET /api/chart/data/${param0} */
+export async function getChartDataByIdUsingGet(
+  // 叠加生成的Param类型 (非body参数swagger默认没有生成对象)
+  params: API.getChartDataByIdUsingGETParams,
+  options?: { [key: string]: any }
+) {
+  const { id: param0, ...queryParams } = params;
+  return request<API.BaseResponseString_>(`/api/chart/data/${param0}`, {
+    method: "GET",
+    params: { ...queryParams },
+    ...(options || {}),
+  });
+}
+
 /** deleteChart POST /api/chart/delete */
 export async function deleteChartUsingPost(
   body: API.DeleteRequest,
@@ -179,6 +193,21 @@ export async function genChartByAiAsyncMqUsingPost(
   });
 }
 
+/** retryFailedChart POST /api/chart/gen/retry */
+export async function retryFailedChartUsingPost(
+  body: API.DeleteRequest,
+  options?: { [key: string]: any }
+) {
+  return request<API.BaseResponseBoolean_>("/api/chart/gen/retry", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    data: body,
+    ...(options || {}),
+  });
+}
+
 /** getChartById GET /api/chart/get */
 export async function getChartByIdUsingGet(
   // 叠加生成的Param类型 (非body参数swagger默认没有生成对象)
@@ -190,17 +219,6 @@ export async function getChartByIdUsingGet(
     params: {
       ...params,
     },
-    ...(options || {}),
-  });
-}
-
-/** getChartData GET /api/chart/data/{id} */
-export async function getChartDataUsingGet(
-  id: number,
-  options?: { [key: string]: any }
-) {
-  return request<API.BaseResponseString_>(`/api/chart/data/${id}`, {
-    method: "GET",
     ...(options || {}),
   });
 }
@@ -241,21 +259,6 @@ export async function updateChartUsingPost(
   options?: { [key: string]: any }
 ) {
   return request<API.BaseResponseBoolean_>("/api/chart/update", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    data: body,
-    ...(options || {}),
-  });
-}
-
-/** retryFailedChart POST /api/chart/gen/retry */
-export async function retryFailedChartUsingPost(
-  body: API.DeleteRequest,
-  options?: { [key: string]: any }
-) {
-  return request<API.BaseResponseBoolean_>("/api/chart/gen/retry", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

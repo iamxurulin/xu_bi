@@ -1,4 +1,4 @@
-import {listMyChartByPageUsingPost, getChartDataUsingGet, retryFailedChartUsingPost} from '@/services/xubi/chartController';
+import {listMyChartByPageUsingPost, getChartDataByIdUsingGet, retryFailedChartUsingPost} from '@/services/xubi/chartController';
 import {Avatar, Card, List, message, Result, Modal, Button, Table, Spin} from 'antd';
 import React, {useEffect, useState} from 'react';
 import ReactECharts from "echarts-for-react";
@@ -90,7 +90,7 @@ const MyChartPage: React.FC = () => {
     setLoadingData(true);
     setFetchingId(id);
     try {
-      const res = await getChartDataUsingGet(id);
+      const res = await getChartDataByIdUsingGet({ id });
       if (res && (res as any).data !== undefined) {
         const csvText = (res as any).data ?? '';
           setCurrentChartData(csvText);
@@ -203,6 +203,12 @@ const MyChartPage: React.FC = () => {
                         title="待生成"
                         subTitle={item.execMessage ?? '当前图表生成队列繁忙，请耐心等候'}
                       />
+                      <div style={{ position: 'absolute', right: 12, top: 12, zIndex: 1000 }}>
+                        <Button size="small" type="primary" onClick={() => handleRetryChart(item.id as number)}
+                                loading={retryLoading && retryingId === (item.id as number)}>
+                          重试
+                        </Button>
+                      </div>
                     </>
                   }
                   {

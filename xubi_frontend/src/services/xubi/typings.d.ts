@@ -183,6 +183,11 @@ declare namespace API {
     id?: number;
   };
 
+  type getChartDataByIdUsingGETParams = {
+    /** id */
+    id: number;
+  };
+
   type getPostVOByIdUsingGETParams = {
     /** id */
     id?: number;

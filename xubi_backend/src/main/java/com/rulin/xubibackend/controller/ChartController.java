@@ -718,8 +718,8 @@ public class ChartController {
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
         }
         // 核心校验：只有当图表的status为failed时，才允许重试
-        if (!"failed".equals(oldChart.getStatus())) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "只有失败状态的图表才能重试");
+        if (!"failed".equals(oldChart.getStatus()) && !"wait".equals(oldChart.getStatus())) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "只有等待中或失败状态的图表才能重试");
         }
         // 将图表的status重新更新为wait，清空之前的错误信息execMessage
         Chart updateChart = new Chart();
