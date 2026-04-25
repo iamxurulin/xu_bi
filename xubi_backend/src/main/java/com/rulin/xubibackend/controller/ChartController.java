@@ -381,9 +381,6 @@ public class ChartController {
         //限流判断，每个用户一个限流器
         redisLimiterManager.doRateLimit("genChartByAi_" + loginUser.getId());
 
-        //指定一个模型id（把id写死，也可以定义成一个常量）
-        long biModelId = CommonConstant.BI_MODEL_ID;
-
         //构造用户输入
         StringBuilder userInput = new StringBuilder();
         userInput.append("分析需求：").append("\n");
@@ -483,9 +480,6 @@ public class ChartController {
 
         //限流判断，每个用户一个限流器
         redisLimiterManager.doRateLimit("genChartByAi_" + loginUser.getId());
-
-        //指定一个模型id（把id写死，也可以定义成一个常量）
-        long biModelId = CommonConstant.BI_MODEL_ID;
 
         //构造用户输入
         StringBuilder userInput = new StringBuilder();
@@ -620,9 +614,6 @@ public class ChartController {
 
         //限流判断，每个用户一个限流器
         redisLimiterManager.doRateLimit("genChartByAi_" + loginUser.getId());
-
-        //指定一个模型id（把id写死，也可以定义成一个常量）
-        long biModelId = CommonConstant.BI_MODEL_ID;
 
         //构造用户输入
         StringBuilder userInput = new StringBuilder();

@@ -19,10 +19,4 @@ public interface CommonConstant {
      */
     String SORT_ORDER_DESC = "descend";
 
-    /**
-     * BI 模型 id
-     * 定义BI模型ID的常量值
-     */
-    long BI_MODEL_ID = 183L;
-
 }
