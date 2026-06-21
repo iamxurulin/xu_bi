@@ -6,177 +6,233 @@ import com.rulin.xubibackend.exception.BusinessException;
 import com.rulin.xubibackend.manager.AiManager;
 import com.rulin.xubibackend.model.entity.Chart;
 import com.rulin.xubibackend.service.ChartService;
-import lombok.SneakyThrows;
+import com.rulin.xubibackend.validator.ChartValidator;
+import com.rulin.xubibackend.validator.ValidationResult;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.redisson.api.RAtomicLong;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.support.AmqpHeaders;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
+import java.io.IOException;
 
 /**
- * 消息消费者组件，负责处理与BI相关的消息
- * 使用RabbitMQ作为消息队列，处理图表生成相关的任务
+ * BI 消息消费者，负责处理图表生成任务
+ * 包含：幂等性检查、AI 结果校验、Redis 重试计数、死信队列处理
  */
 @Component
 @Slf4j
 public class BiMessageConsumer {
 
-    @Resource
-    private ChartService chartService;  // 图表服务，用于数据库操作
+    private static final int MAX_RETRY_COUNT = 3;
 
     @Resource
-    private AiManager aiManager;  // AI管理器，用于与AI服务交互
+    private ChartService chartService;
+
+    @Resource
+    private AiManager aiManager;
+
+    @Resource
+    private ChartValidator chartValidator;
+
+    @Resource
+    private org.redisson.api.RedissonClient redissonClient;
 
     /**
-     * 处理来自RabbitMQ的消息
-     * @param message 接收到的消息内容，包含图表ID
-     * @param channel RabbitMQ通道，用于消息确认
-     * @param deliveryTag 消息投递标签，用于消息确认
-     * @throws Exception 可能抛出异常
+     * 处理 BI 图表生成消息
+     * ackMode = "MANUAL"
+     * 重试次数存储于 Redis RAtomicLong，重试耗尽后 nack 走死信队列
      */
-    /**
-     * 使用@SneakyThrows注解来简化异常处理
-     * 该注解会自动将被注解方法内抛出的受检异常转换为未检查异常
-     * 这样可以避免在方法签名中声明throws子句
-     * 通常用于那些确定不会发生或者可以安全忽略的异常
-     * 属于Lombok库提供的注解之一
-     */
-    @SneakyThrows
     @RabbitListener(queues = {BiMqConstant.BI_QUEUE_NAME}, ackMode = "MANUAL")
-    public void receiveMessage(String message, Channel channel, @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag) {
+    public void receiveMessage(
+            String message,
+            Channel channel,
+            @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag,
+            @Header(AmqpHeaders.MESSAGE_ID) String messageId) throws IOException {
 
-        // 记录接收到的消息
-        log.info("receieveMessage message = {}", message);
-        // 检查消息是否为空
-        if (StringUtils.isBlank(message)) {
-            channel.basicNack(deliveryTag, false, false);
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "消息为空");
+        // === 幂等性检查 ===
+        if (StringUtils.isNotBlank(messageId)) {
+            String idempotentKey = "mq_msg:" + messageId;
+            if (redissonClient.getBucket(idempotentKey).trySet("1", 300, java.util.concurrent.TimeUnit.SECONDS)) {
+                log.info("幂等检查通过, messageId: {}", messageId);
+            } else {
+                log.info("重复消息，跳过处理, messageId: {}", messageId);
+                channel.basicAck(deliveryTag, false);
+                return;
+            }
         }
-        // 解析消息获取图表ID
-        long chartId = Long.parseLong(message);
-        // 从数据库获取图表信息
+
+        long chartId = 0L;
+        try {
+            chartId = Long.parseLong(message);
+        } catch (NumberFormatException e) {
+            log.error("消息格式错误: {}", message);
+            channel.basicNack(deliveryTag, false, false);
+            return;
+        }
+
+        // 获取当前重试次数
+        RAtomicLong retryCounter = redissonClient.getAtomicLong("mq_retry:" + chartId);
+        long currentRetry = retryCounter.incrementAndGet();
+
+        log.info("BI 消费消息, chartId: {}, retryCount: {}/{}", chartId, currentRetry, MAX_RETRY_COUNT);
+
+        try {
+            doProcess(chartId, channel, deliveryTag);
+            channel.basicAck(deliveryTag, false);
+            retryCounter.delete(); // 处理成功，清理重试计数
+            log.info("BI 消息处理成功, chartId: {}", chartId);
+
+        } catch (Exception e) {
+            log.error("BI 消息处理异常, chartId: {}", chartId, e);
+            if (currentRetry < MAX_RETRY_COUNT) {
+                // 未达到最大重试次数，nack 重入队列
+                channel.basicNack(deliveryTag, false, true);
+                log.warn("消息重入队列，chartId: {}, retry: {}/{}", chartId, currentRetry, MAX_RETRY_COUNT);
+            } else {
+                // 重试耗尽，nack 走死信队列
+                channel.basicNack(deliveryTag, false, false);
+                log.error("消息重试耗尽，转入死信队列, chartId: {}", chartId);
+            }
+        }
+    }
+
+    /**
+     * 核心处理逻辑（含 LLM-as-Judge 二次校验回环）
+     */
+    private void doProcess(long chartId, Channel channel, long deliveryTag) {
         Chart chart = chartService.getById(chartId);
-
-        // 检查图表是否存在
         if (chart == null) {
-            channel.basicNack(deliveryTag, false, false);
-            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "图表为空");
+            handleChartUpdateError(chartId, "图表不存在");
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "图表不存在: " + chartId);
         }
 
-        // 更新图表状态为"running"
+        // 更新状态为 running
         Chart updateChart = new Chart();
-// 更新图表信息，设置图表ID和状态为"running"
         updateChart.setId(chart.getId());
         updateChart.setStatus("running");
-// 调用chartService的updateById方法更新图表，并获取更新结果
-        boolean b = chartService.updateById(updateChart);
-
-        // 检查状态更新是否成功
-        if (!b) {
-            channel.basicNack(deliveryTag, false, false);
-            handleChartUpdateError(chart.getId(), "更新图表执行中状态失败");
-            return;
+        boolean updateOk = chartService.updateById(updateChart);
+        if (!updateOk) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "更新图表执行中状态失败");
         }
 
-        // 构建用户输入并发送给AI服务
-        String result = aiManager.sendMsgToXunFeiSpark(true, buildUserInput(chart));
+        String userInput = buildUserInput(chart);
 
-        // 解析AI返回的结果
-        String[] splits = result.split("【【【【");
+        // 首次 AI 调用
+        String aiResult = aiManager.sendMsgToXunFeiSpark(true, userInput);
+        String[] splits = parseAiResult(aiResult);
+        String genChart = splits[0];
+        String genResult = splits[1];
 
-        // 检查AI返回结果格式是否正确
+        // === LLM-as-Judge 二次校验回环 ===
+        int maxRetries = 2;
+        for (int retry = 0; retry <= maxRetries; retry++) {
+            ValidationResult vr = chartValidator.validate(genChart, genResult);
+            if (vr.isValid()) {
+                break; // 校验通过
+            }
+
+            if (retry >= maxRetries) {
+                handleChartUpdateError(chartId, "图表校验失败: " + vr.getMessage());
+                throw new BusinessException(ErrorCode.SYSTEM_ERROR, "AI 生成结果校验失败，已重试 " + maxRetries + " 次: " + vr.getMessage());
+            }
+
+            log.warn("LLM-as-Judge 第 {} 次重试, 校验失败: {}", retry + 1, vr.getMessage());
+            handleChartUpdateError(chartId, "LLM-as-Judge 正在重试第 " + (retry + 1) + " 次, 原因: " + vr.getMessage());
+
+            aiResult = aiManager.retryChartGeneration(genChart, vr.getMessage(), userInput);
+            splits = parseAiResult(aiResult);
+            genChart = splits[0];
+            genResult = splits[1];
+        }
+
+        // 保存结果
+        Chart updateResult = new Chart();
+        updateResult.setId(chart.getId());
+        updateResult.setGenChart(genChart);
+        updateResult.setGenResult(genResult);
+        updateResult.setStatus("succeed");
+        boolean saveOk = chartService.updateById(updateResult);
+        if (!saveOk) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "更新图表结果失败");
+        }
+    }
+
+    /**
+     * 解析 AI 返回结果，返回 [genChart, genResult]
+     */
+    private String[] parseAiResult(String aiResult) {
+        String[] splits = aiResult.split("【【【【");
         if (splits.length < 3) {
-            channel.basicNack(deliveryTag, false, false);
-            handleChartUpdateError(chart.getId(), "AI 生成错误");
-            return;
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "AI 生成结果格式错误");
         }
+        return new String[]{cleanAiOutput(splits[1].trim()), cleanAiOutput(splits[2].trim())};
+    }
 
-        // 提取图表数据和结果
-        String genChart = splits[1].trim();
-        String genResult = splits[2].trim();
-        // 更新图表结果
-        // 创建一个新的Chart对象用于更新图表结果
-        Chart updateChartResult = new Chart();
-        // 设置更新后的图表ID，保持与原图表ID一致
-        updateChartResult.setId(chart.getId());
-        // 设置生成的图表数据
-        updateChartResult.setGenChart(genChart);
-        // 设置生成的结果信息
-        updateChartResult.setGenResult(genResult);
-        // 设置图表状态为"succeed"，表示更新成功
-        updateChartResult.setStatus("succeed");
-
-        // 检查结果更新是否成功
-        boolean updateResult = chartService.updateById(updateChartResult);
-        if (!updateResult) {
-            channel.basicNack(deliveryTag, false, false);
-            handleChartUpdateError(chart.getId(), "更新图表成功状态失败");
+    private String cleanAiOutput(String raw) {
+        String s = raw.trim();
+        s = s.replaceAll("^```\\w*\\s*|\\s*```$", "");
+        while (s.length() > 0 && (s.startsWith("'") || s.startsWith("`") || s.startsWith("\""))) {
+            s = s.substring(1);
         }
+        while (s.length() > 0 && (s.endsWith("'") || s.endsWith("`") || s.endsWith("\""))) {
+            s = s.substring(0, s.length() - 1);
+        }
+        return s.trim();
+    }
 
-        // 手动确认消息处理成功
+    /**
+     * 死信队列消费者
+     */
+    @RabbitListener(queues = {"bi_dlq"}, ackMode = "MANUAL", containerFactory = "dlqListenerContainerFactory")
+    public void handleDeadLetterMessage(
+            String message,
+            Channel channel,
+            @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag) throws IOException {
+
+        log.error("=== BI 死信队列收到消息: {} ===", message);
         channel.basicAck(deliveryTag, false);
-    }
 
-    /**
-     * 构建发送给AI的用户输入
-     *
-     * @param chart 图表对象，包含目标、类型和数据
-     * @return 格式化的用户输入字符串
-     */
-    private String buildUserInput(Chart chart) {
-        // 从图表对象中获取目标、类型和数据
-        String goal = chart.getGoal();
-        String chartType = chart.getChartType();
-        String csvData = chart.getChartData();
-
-        // 构建输入字符串
-        StringBuilder userInput = new StringBuilder();
-        // 添加分析需求
-        userInput.append("分析需求：").append("\n");
-
-        String userGoal = goal;
-
-        // 如果指定了图表类型，添加到目标中
-        if (StringUtils.isNotBlank(chartType)) {
-            userGoal += ".请使用" + chartType;
+        try {
+            long chartId = Long.parseLong(message);
+            Chart chart = chartService.getById(chartId);
+            if (chart != null && "running".equals(chart.getStatus())) {
+                Chart updateChart = new Chart();
+                updateChart.setId(chartId);
+                updateChart.setStatus("failed");
+                updateChart.setExecMessage("消息重试耗尽，已转入死信队列");
+                chartService.updateById(updateChart);
+                log.info("死信消费者已将 chartId {} 标记为 failed", chartId);
+            }
+        } catch (Exception e) {
+            log.error("死信消费者无法解析消息: {}", message);
         }
-
-        // 添加用户目标
-        userInput.append(userGoal).append("\n");
-        // 添加原始数据
-        userInput.append("原始数据：").append("\n");
-        // 添加CSV数据
-        userInput.append(csvData).append("\n");
-
-        return userInput.toString();
     }
 
-    /**
-     * 处理图表更新错误
-     * 该方法用于在图表更新过程中发生错误时，将图表状态更新为失败，并记录错误信息
-     *
-     * @param chartId     图表ID，用于标识需要更新的图表
-     * @param execMessage 错误信息，用于记录失败的具体原因
-     */
-    private void handleChartUpdateError(long chartId, String execMessage) {
+    private String buildUserInput(Chart chart) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("分析需求：\n");
+        String goal = chart.getGoal();
+        if (StringUtils.isNotBlank(chart.getChartType())) {
+            goal += ".请使用" + chart.getChartType();
+        }
+        sb.append(goal).append("\n");
+        sb.append("原始数据：\n");
+        sb.append(chart.getChartData()).append("\n");
+        return sb.toString();
+    }
 
-        /**
-         * 创建一个新的Chart对象用于更新图表状态
-         * 设置图表ID、状态为"failed"以及执行消息
-         * 然后尝试更新数据库中的图表记录
-         */
-        Chart updateChartResult = new Chart();  // 创建Chart对象
-        updateChartResult.setId(chartId);        // 设置图表ID
-        updateChartResult.setStatus("failed");   // 设置图表状态为失败
-        updateChartResult.setExecMessage(execMessage);  // 设置执行消息
-        // 调用chartService的updateById方法更新图表记录
-        boolean updateResult = chartService.updateById(updateChartResult);
-        // 如果更新失败，记录错误日志
-        if (!updateResult) {
-            log.error("更新图表失败状态失败" + chartId + "," + execMessage);
+    private void handleChartUpdateError(long chartId, String execMessage) {
+        Chart updateChart = new Chart();
+        updateChart.setId(chartId);
+        updateChart.setStatus("failed");
+        updateChart.setExecMessage(execMessage);
+        boolean ok = chartService.updateById(updateChart);
+        if (!ok) {
+            log.error("更新图表失败状态失败, chartId: {}, message: {}", chartId, execMessage);
         }
     }
 }

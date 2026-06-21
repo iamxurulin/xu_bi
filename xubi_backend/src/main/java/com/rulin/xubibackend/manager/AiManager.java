@@ -87,4 +87,38 @@ public class AiManager {
         return responseContent;
     }
 
+    /**
+     * 二次 AI 重试（LLM-as-Judge）：将校验失败的 genChart 和错误原因发给 AI，让其修正后重新生成
+     *
+     * @param originalChart 原始的 AI 生成 JSON
+     * @param validationMsg 校验失败原因
+     * @param userQuestion 用户的原始分析需求（goal + chartData）
+     * @return 修正后的完整 AI 响应（含 【【【【】 分隔符）
+     */
+    public String retryChartGeneration(String originalChart, String validationMsg, String userQuestion) {
+        String prompt = "之前生成的 ECharts option JSON 有误，请修正后重新生成。\n"
+                + "错误原因：" + validationMsg + "\n"
+                + "错误内容：" + originalChart + "\n"
+                + "用户原始需求：\n" + userQuestion + "\n\n"
+                + "请严格按照以下格式输出，且不得添加任何额外内容：\n"
+                + "【【【【\n"
+                + "{ 合法的 ECharts V5 option JSON，必须包含 title 和 series（数组格式） }\n"
+                + "【【【【\n"
+                + "结论：{简要分析结论}";
+
+        List<SparkMessage> messages = new ArrayList<>();
+        messages.add(SparkMessage.userContent(prompt));
+
+        SparkRequest sparkRequest = SparkRequest.builder()
+                .messages(messages)
+                .maxTokens(2048)
+                .temperature(0.6)
+                .apiVersion(SparkApiVersion.V4_0)
+                .build();
+
+        String responseContent = sparkClient.chatSync(sparkRequest).getContent().trim();
+        log.info("LLM-as-Judge 修正后的结果: {}", responseContent);
+        return responseContent;
+    }
+
 }

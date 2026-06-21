@@ -9,6 +9,8 @@ import com.rulin.xubibackend.bizmq.BiMessageProducer;
 import com.rulin.xubibackend.common.BaseResponse;
 import com.rulin.xubibackend.common.DeleteRequest;
 import com.rulin.xubibackend.common.ErrorCode;
+import com.rulin.xubibackend.validator.ChartValidator;
+import com.rulin.xubibackend.validator.ValidationResult;
 import com.rulin.xubibackend.common.ResultUtils;
 import com.rulin.xubibackend.constant.CommonConstant;
 import com.rulin.xubibackend.constant.UserConstant;
@@ -64,6 +66,9 @@ public class ChartController {
 
     @Resource
     private BiMessageProducer biMessageProducer;       // BI消息生产者
+
+    @Resource
+    private ChartValidator chartValidator;             // AI生成结果校验器
 
 
     // region 增删改查
@@ -411,9 +416,19 @@ public class ChartController {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "AI 生成错误");
         }
 
+        // 从 splits 中提取 JSON 和结论
         String genChart = splits[1].trim();
         String genResult = splits[2].trim();
 
+        // 清洗 AI 返回的 JSON 和结论，去掉首尾单引号/反引号/Markdown 代码块
+        genChart = cleanAiOutput(genChart);
+        genResult = cleanAiOutput(genResult);
+
+        // === AI 生成结果校验 ===
+        ValidationResult syncVr = chartValidator.validate(genChart, genResult);
+        if (!syncVr.isValid()) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "图表JSON验证失败: " + syncVr.getMessage());
+        }
 
         //先把图表保存到数据库中
         Chart chart = new Chart();
@@ -537,11 +552,22 @@ public class ChartController {
                 return;
             }
 
-            // 从splits数组中获取并清理生成图表的字符串
+            // 从splits数组中获取生成图表的字符串
             String genChart = splits[1].trim();
 
-            // 从splits数组中获取并清理生成结果的字符串
+            // 从splits数组中获取生成结果的字符串
             String genResult = splits[2].trim();
+
+            // 清洗 AI 返回的 JSON 和结论
+            genChart = cleanAiOutput(genChart);
+            genResult = cleanAiOutput(genResult);
+
+            // === AI 生成结果校验 ===
+            ValidationResult asyncVr = chartValidator.validate(genChart, genResult);
+            if (!asyncVr.isValid()) {
+                handleChartUpdateError(chart.getId(), "图表校验失败: " + asyncVr.getMessage());
+                return;
+            }
 
             // 创建一个新的Chart对象用于更新
             Chart updateChartResult = new Chart();
@@ -732,5 +758,22 @@ public class ChartController {
         biMessageProducer.sendMessage(String.valueOf(id));
         // 返回成功响应
         return ResultUtils.success(true);
+    }
+
+    /**
+     * 清洗 AI 输出结果，去掉首尾单引号/反引号/Markdown 代码块标记
+     */
+    private String cleanAiOutput(String raw) {
+        String s = raw.trim();
+        // 去掉 markdown 代码块 ```json / ```
+        s = s.replaceAll("^```\\w*\\s*|\\s*```$", "");
+        // 去掉首尾的所有单引号/反引号
+        while (s.length() > 0 && (s.startsWith("'") || s.startsWith("`") || s.startsWith("\""))) {
+            s = s.substring(1);
+        }
+        while (s.length() > 0 && (s.endsWith("'") || s.endsWith("`") || s.endsWith("\""))) {
+            s = s.substring(0, s.length() - 1);
+        }
+        return s.trim();
     }
 }
