@@ -35,9 +35,33 @@ public class AiManager {
                     "{ 生成 Echarts V5 的 option 配置对象 JSON 代码，要求为合法 JSON 格式且不含任何额外内容（如注释或多余字符） } '【【【【' 结论： {\n" +
                     "提供对数据的详细分析结论，内容应尽可能准确、详细，不允许添加其他无关文字或注释 }\n" +
                     "\n" +
-                    "示例： 输入： 分析需求： 分析网站用户增长情况，请使用柱状图展示 原始数据： 日期,用户数 1号,10 2号,20 3号,30\n" +
+                    "=== ECharts 视觉与布局规范（必须严格遵守） ===" +
                     "\n" +
-                    "期望输出： '【【【【' { \"title\": { \"text\": \"分析网站用户增长情况\" }, \"xAxis\": { \"type\": \"category\", \"data\": [\"1号\", \"2号\", \"3号\"] }, \"yAxis\": { \"type\": \"value\" }, \"series\": [ { \"name\": \"用户数\", \"type\": \"bar\", \"data\": [10, 20, 30] } ] } '【【【【' 结论： 从数据看，网站用户数由1号的10人增长到2号的20人，再到3号的30人，呈现出明显的上升趋势。";
+                    "【最重要】输出必须是纯 JSON，绝不允许出现 JavaScript 表达式！禁用 new/function/Math 等 JS 关键字，必须能被 JSON.parse() 直接解析。" +
+                    "\n" +
+                    "渐变色 JSON 合法写法：{\"color\":{\"type\":\"linear\",\"x\":0,\"y\":0,\"x2\":0,\"y2\":1,\"colorStops\":[{\"offset\":0,\"color\":\"#636efa\"},{\"offset\":1,\"color\":\"#a855f7\"}]}}" +
+                    "\n" +
+                    "布局关键配置（必须全部设置，否则图例会和坐标轴重叠）：" +
+                    "\n" +
+                    "1. grid: {left:'8%',right:'10%',top:'20%',bottom:'12%',containLabel:true} | " +
+                    "2. title: {text:'',show:false}（前端会覆盖title，所以设为空）" +
+                    "\n" +
+                    "3. legend: {show:true,orient:'horizontal',top:'2%',left:'center',padding:[5,0,10,0],textStyle:{fontSize:12,color:'#6b7280'},icon:'roundRect',itemWidth:15,itemHeight:8,itemGap:20}" +
+                    "\n" +
+                    "4. tooltip: {trigger:'axis',backgroundColor:'rgba(255,255,255,0.98)',borderColor:'#e5e7eb',textStyle:{fontSize:12,padding:[8,12]}};" +
+                    "5. xAxis: {axisLabel:{fontSize:12,color:'#6b7280',rotate:0},axisLine:{lineStyle:{color:'#e5e7eb'}}}" +
+                    "\n" +
+                    "6. yAxis: {splitLine:{lineStyle:{color:'#f3f4f6',type:'dashed'}},axisLabel:{fontSize:12,color:'#6b7280'}}" +
+                    "\n" +
+                    "【字段选择规则（必须遵守）】如果数据包含多个数值字段（如营收、利润、成本等），柱状图必须将所有数值字段作为独立 series 展示在同一图表中，不得使用单系列。折线图同理。" +
+                    "\n" +
+                    "【双Y轴/多量级规则】如果数据包含不同量级（如金额和百分比），必须使用双 Y 轴：yAxis 设为数组，第一个 type:'value'（左侧），第二个 type:'value' position:'right'（右侧），右侧 axisLabel.formatter:'{value}%'。series 中百分比系列设 yAxisIndex:1。" +
+                    "\n" +
+                    "配色：折线 ['#636efa','#a855f7','#ec4899']，饼图 ['#f59e42','#f43f5e','#8b5cf6','#3b82f6','#10b981']。" +
+                    "\n" +
+                    "折线图: smooth true, symbol circle, symbolSize 6, areaStyle opacity 0.1 | " +
+                    "柱状图: barMaxWidth 40, borderRadius [4,4,0,0] | " +
+                    "饼图: radius ['40%','65%']";
         }
 
         String responseContent;
@@ -51,7 +75,7 @@ public class AiManager {
 
         // 检查分隔符是否完整
         AtomicInteger atomicInteger = new AtomicInteger(1);
-        while (responseContent.split("'【【【【'").length < 3) {
+        while (responseContent.split("【【【【").length < 3) {
             log.warn("AI 返回分隔符数量不足，重试第 {} 次", atomicInteger.get());
             if (systemPrompt != null) {
                 responseContent = agnesAiClient.chat(systemPrompt, content);

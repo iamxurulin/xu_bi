@@ -27,7 +27,8 @@ public class AgnesAiClient {
                 new Message("system", systemPrompt != null ? systemPrompt : "You are a helpful assistant."),
                 new Message("user", userPrompt)
         };
-        request.temperature = 0.6f;
+        request.temperature = 0.01f;
+        request.seed = 42;
         request.maxTokens = 4096;
 
         String requestBody = gson.toJson(request);
@@ -98,6 +99,7 @@ public class AgnesAiClient {
         String model;
         Message[] messages;
         Float temperature;
+        Integer seed;
         Integer maxTokens;
     }
 

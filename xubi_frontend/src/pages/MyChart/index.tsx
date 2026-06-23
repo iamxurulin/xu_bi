@@ -1,6 +1,6 @@
-import {listMyChartByPageUsingPost, getChartDataByIdUsingGet, retryFailedChartUsingPost} from '@/services/xubi/chartController';
-import {Avatar, Card, List, message, Result, Modal, Button, Table, Spin} from 'antd';
-import React, {useEffect, useState} from 'react';
+import {listMyChartByPageUsingPost, getChartDataByIdUsingGet, retryFailedChartUsingPost, deleteChartUsingPost} from '@/services/xubi/chartController';
+import {Avatar, Card, List, message, Result, Modal, Button, Table, Spin, Switch} from 'antd';
+import React, {useEffect, useState, useRef, useCallback} from 'react';
 import ReactECharts from "echarts-for-react";
 import {useModel} from "@@/exports";
 import Search from "antd/es/input/Search";
@@ -52,30 +52,77 @@ const MyChartPage: React.FC = () => {
   // 当前正在重试的图表ID
   const [retryingId, setRetryingId] = useState<number | null>(null);
 
-  const loadData = async () => {
-    setLoading(true);
+  // === 自动轮询相关状态 ===
+  const [autoRefresh, setAutoRefresh] = useState<boolean>(true);
+  const pollingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // 使用 ref 追踪是否有待处理任务，避免 state 闭包过期问题
+  const hasPendingRef = useRef<boolean>(false);
+
+  const loadData = async (polling = false, useMaxPageSize = false) => {
+    if (polling) {
+      // 轮询时不显示 loading 状态和错误提示，避免页面闪烁
+    } else {
+      setLoading(true);
+    }
     try {
-      const res = await listMyChartByPageUsingPost(searchParams);
+      let params = searchParams;
+      if (useMaxPageSize) {
+        // 轮询时使用最大 pageSize，确保覆盖所有图表，避免分页导致漏掉状态更新
+        params = { ...searchParams, pageSize: 20 };
+      }
+      const res = await listMyChartByPageUsingPost(params);
 
 
       if (res.data) {
         setChartList(res.data.records??[]);
         setTotal(res.data.total ?? 0);
-
-      } else {
+      } else if (!polling) {
         message.error('获取我的图表失败');
       }
 
     } catch (e: any) {
-      message.error('获取我的图表失败，' + e.message);
+      if (!polling) {
+        message.error('获取我的图表失败，' + e.message);
+      }
+    } finally {
+      if (!polling) {
+        setLoading(false);
+      }
     }
-    setLoading(false);
   };
 
-  //首次页面加载时，触发加载数据
+  /** 启动轮询 */
+  const startPolling = useCallback(() => {
+    stopPolling();
+    if (!autoRefresh || !hasPendingRef.current) return;
+    pollingTimerRef.current = setInterval(() => {
+      loadData(true, true);
+    }, 3000);
+  }, [autoRefresh]);
+
+  /** 停止轮询 */
+  const stopPolling = useCallback(() => {
+    if (pollingTimerRef.current) {
+      clearInterval(pollingTimerRef.current);
+      pollingTimerRef.current = null;
+    }
+  }, []);
+
+  // 首次页面加载时，触发加载数据
   useEffect(() => {
     loadData();
   }, [searchParams]);
+
+  // 数据加载完成后判断是否需要轮询
+  useEffect(() => {
+    // 更新 ref，供 startPolling 使用
+    hasPendingRef.current = chartList?.some(
+      (item) => item.status === 'wait' || item.status === 'running',
+    ) ?? false;
+
+    startPolling();
+    return stopPolling;
+  }, [chartList, autoRefresh, startPolling, stopPolling]);
 
   // 使用 utils 中的 csvToTable 返回 columns/dataSource
 
@@ -107,6 +154,36 @@ const MyChartPage: React.FC = () => {
     }
     setLoadingData(false);
     setFetchingId(null);
+  };
+
+  /**
+   * 点击"删除"按钮时调用，删除指定图表
+   */
+  const handleDeleteChart = (id?: number) => {
+    if (!id) {
+      message.error('图表 ID 不存在');
+      return;
+    }
+    Modal.confirm({
+      title: '确认删除',
+      content: '确定要删除此图表吗？删除后将无法恢复。',
+      okText: '确认删除',
+      okButtonProps: { danger: true },
+      cancelText: '取消',
+      onOk: async () => {
+        try {
+          const res = await deleteChartUsingPost({ id });
+          if (res.data) {
+            message.success('删除成功');
+            loadData();
+          } else {
+            message.error('删除失败');
+          }
+        } catch (e: any) {
+          message.error('删除失败，' + e?.message);
+        }
+      },
+    });
   };
 
   /**
@@ -147,8 +224,9 @@ const MyChartPage: React.FC = () => {
     // 把页面内容指定一个类名add-chart
     <div className="my-chart-page">
 
-      <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <Search placeholder="请输入图表名称" enterButton loading={loading}
+                style={{ width: '50%', maxWidth: 400 }}
                 onSearch={(value) => {
                   //设置搜索条件
                   setSearchParams({
@@ -156,17 +234,33 @@ const MyChartPage: React.FC = () => {
                     name: value,
                   })
                 }}/>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 14, color: '#666' }}>自动刷新</span>
+          <Switch
+            checked={autoRefresh}
+            onChange={(val) => {
+              setAutoRefresh(val);
+              if (!val) {
+                stopPolling();
+              } else {
+                startPolling();
+              }
+            }}
+          />
+          {autoRefresh && hasPendingRef.current && (
+            <span style={{ fontSize: 12, color: '#faad14', whiteSpace: 'nowrap' }}>● 轮询中</span>
+          )}
+        </div>
       </div>
-      <div className="margin-16"/>
       <List
         grid={{
           gutter: 16,
           xs: 1,
           sm: 1,
           md: 1,
-          lg: 2,
-          xl: 2,
-          xxl: 2,
+          lg: 1,
+          xl: 1,
+          xxl: 1,
         }}
         pagination={{
           onChange: (page, pageSize) => {
@@ -187,7 +281,7 @@ const MyChartPage: React.FC = () => {
 
         renderItem={(item) => (
             <List.Item key={item.id}>
-              <Card style={{width: '100%'}}>
+              <Card style={{width: '100%', position: 'relative'}}>
                 <List.Item.Meta
                   avatar={<Avatar src={currentUser && currentUser.userAvatar}/>}
                   title={item.name}
@@ -251,8 +345,11 @@ const MyChartPage: React.FC = () => {
                           }
                         })()}
                       </div>
-                      {/* 左上角按钮 */}
-                      <div style={{ position: 'absolute', right: 12, top: 12, zIndex: 1000 }}>
+                      {/* 右上角按钮组 */}
+                      <div style={{ position: 'absolute', right: 12, top: 12, zIndex: 1000, display: 'flex', gap: 8 }}>
+                        <Button size="small" onClick={() => handleDeleteChart(item.id as number)} danger>
+                          删除
+                        </Button>
                         <Button size="small" onClick={() => handleViewData(item.id as number)}
                                 loading={loadingData && fetchingId === (item.id as number)}>
                           查看原始数据
@@ -285,7 +382,7 @@ const MyChartPage: React.FC = () => {
       {/* 原始数据 Modal */}
       <Modal
         title="原始数据"
-        visible={isModalVisible}
+        open={isModalVisible}
         onCancel={() => setIsModalVisible(false)}
         footer={null}
         width={900}

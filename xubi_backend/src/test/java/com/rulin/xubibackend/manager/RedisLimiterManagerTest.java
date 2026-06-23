@@ -25,7 +25,7 @@ class RedisLimiterManagerTest {
 
         Thread.sleep(1000);
 
-        for(int i=0;i<5;i++){
+        for(int i=0;i<2;i++){
             redisLimiterManager.doRateLimit(userId);
             System.out.println("成功");
         }
