@@ -32,6 +32,12 @@ const AddChartAsync: React.FC = () => {
    */
   const onFinish = async (values: any) => {
 
+    // 校验文件是否已上传
+    if (!values.file || values.file.length === 0) {
+      message.error('请先上传原始数据文件');
+      return;
+    }
+
     //如果已经是提交中的状态（还在加载），直接返回，避免重复提交
     if(submitting){
       return;

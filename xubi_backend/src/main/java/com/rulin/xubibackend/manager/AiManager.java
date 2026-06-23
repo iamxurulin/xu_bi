@@ -53,7 +53,11 @@ public class AiManager {
                     "\n" +
                     "6. yAxis: {splitLine:{lineStyle:{color:'#f3f4f6',type:'dashed'}},axisLabel:{fontSize:12,color:'#6b7280'}}" +
                     "\n" +
+                    "【yAxis name 规范（必须遵守）】yAxis.name 只能使用一个单位，不得混合多种单位（如不能同时写'万元/亿元'）。如果数据原始单位是万元，name 统一设为'万元'；如果是元，设为'元'。百分比系列放在右侧 Y 轴时，name 设为'%'。" +
+                    "\n" +
                     "【字段选择规则（必须遵守）】如果数据包含多个数值字段（如营收、利润、成本等），柱状图必须将所有数值字段作为独立 series 展示在同一图表中，不得使用单系列。折线图同理。" +
+                    "\n" +
+                    "【时间轴排序规则（必须遵守）】如果 xAxis 是年份或时间（如 2021、2022、2023、2024），必须按升序排列（从小到大，从左到右）。" +
                     "\n" +
                     "【双Y轴/多量级规则】如果数据包含不同量级（如金额和百分比），必须使用双 Y 轴：yAxis 设为数组，第一个 type:'value'（左侧），第二个 type:'value' position:'right'（右侧），右侧 axisLabel.formatter:'{value}%'。series 中百分比系列设 yAxisIndex:1。" +
                     "\n" +

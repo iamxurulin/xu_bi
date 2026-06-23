@@ -345,6 +345,15 @@ const MyChartPage: React.FC = () => {
                           }
                         })()}
                       </div>
+
+                      {/* 分析结论 */}
+                      <div style={{ marginBottom: 16 }}>
+                        <span style={{ fontWeight: 'bold' }}>分析结论：</span>
+                        <div style={{ marginTop: 8, lineHeight: 1.8 }}>
+                          {item.genResult || '暂无分析结论'}
+                        </div>
+                      </div>
+
                       {/* 右上角按钮组 */}
                       <div style={{ position: 'absolute', right: 12, top: 12, zIndex: 1000, display: 'flex', gap: 8 }}>
                         <Button size="small" onClick={() => handleDeleteChart(item.id as number)} danger>

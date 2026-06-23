@@ -222,6 +222,7 @@ public class BiMessageConsumer {
         sb.append(goal).append("\n");
         sb.append("原始数据：\n");
         sb.append(chart.getChartData()).append("\n");
+        sb.append("注意：请根据表头和数据自行判断数值的单位（如万元、亿元、元、%等），分析结论中的金额单位应与原始数据保持一致，不要随意换算。\n");
         return sb.toString();
     }
 

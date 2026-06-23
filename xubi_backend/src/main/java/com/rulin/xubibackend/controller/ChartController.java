@@ -2,6 +2,7 @@ package com.rulin.xubibackend.controller;
 
 import cn.hutool.core.io.FileUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.google.gson.Gson;
 import com.rulin.xubibackend.annotation.AuthCheck;
@@ -96,6 +97,8 @@ public class ChartController {
         chart.setUserId(loginUser.getId());
         // 保存图表到数据库
         boolean result = chartService.save(chart);
+        // 保存成功后清除缓存
+        chartService.evictChartListCache();
         // 如果保存失败，抛出操作错误异常
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
         // 获取新创建的图表ID
@@ -132,6 +135,8 @@ public class ChartController {
         }
         // 执行删除操作，根据ID删除图表
         boolean b = chartService.removeById(id);
+        // 删除成功后清除缓存
+        chartService.evictChartListCache();
         // 返回操作结果，删除成功返回true，失败返回false
         return ResultUtils.success(b);
     }
@@ -158,6 +163,8 @@ public class ChartController {
         Chart oldChart = chartService.getById(id);
         ThrowUtils.throwIf(oldChart == null, ErrorCode.NOT_FOUND_ERROR);
         boolean result = chartService.updateById(chart);
+        // 更新成功后清除缓存
+        chartService.evictChartListCache();
         return ResultUtils.success(result);
     }
 
@@ -248,24 +255,20 @@ public class ChartController {
     @PostMapping("/my/list/page")
     public BaseResponse<Page<Chart>> listMyChartByPage(@RequestBody ChartQueryRequest chartQueryRequest,
                                                        HttpServletRequest request) {
-        // 参数校验：如果查询请求为空，则抛出参数错误异常
         if (chartQueryRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        // 获取当前登录用户信息
         User loginUser = userService.getLoginUser(request);
-        // 设置查询条件中的用户ID为当前登录用户ID
         chartQueryRequest.setUserId(loginUser.getId());
-        // 获取分页参数
-        long current = chartQueryRequest.getCurrent();
-        long size = chartQueryRequest.getPageSize();
-        // 限制爬虫：如果每页大小超过20条，则抛出参数错误异常
-        ThrowUtils.throwIf(size > 20, ErrorCode.PARAMS_ERROR);
-        // 执行分页查询，获取当前用户的图表列表
-        Page<Chart> chartPage = chartService.page(new Page<>(current, size),
-                getQueryWrapper(chartQueryRequest));
-        // 返回查询成功结果
-        return ResultUtils.success(chartPage);
+        // 使用带缓存的 Service 方法
+        IPage<Chart> chartPage = chartService.listMyChartByPage(chartQueryRequest);
+        // 转换为 Page 类型返回
+        Page<Chart> resultPage = new Page<>();
+        resultPage.setCurrent(chartPage.getCurrent());
+        resultPage.setSize(chartPage.getSize());
+        resultPage.setTotal(chartPage.getTotal());
+        resultPage.setRecords(chartPage.getRecords());
+        return ResultUtils.success(resultPage);
     }
 
     // endregion
@@ -756,6 +759,8 @@ public class ChartController {
         ThrowUtils.throwIf(!updateResult, ErrorCode.OPERATION_ERROR, "更新图表状态失败");
         // 复用现有的消息队列机制，将图表ID再次发送到RabbitMQ中
         biMessageProducer.sendMessage(String.valueOf(id));
+        // 重试成功后清除缓存
+        chartService.evictChartListCache();
         // 返回成功响应
         return ResultUtils.success(true);
     }
