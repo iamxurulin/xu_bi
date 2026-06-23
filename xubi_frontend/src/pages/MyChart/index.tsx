@@ -1,5 +1,5 @@
-import {listMyChartByPageUsingPost, getChartDataByIdUsingGet, retryFailedChartUsingPost, deleteChartUsingPost} from '@/services/xubi/chartController';
-import {Avatar, Card, List, message, Result, Modal, Button, Table, Spin, Switch} from 'antd';
+import {listMyChartByPageUsingPost, getChartDataByIdUsingGet, retryFailedChartUsingPost, deleteChartUsingPost, editChartUsingPost, getChartByIdUsingGet} from '@/services/xubi/chartController';
+import {Avatar, Card, List, message, Result, Modal, Button, Table, Spin, Switch, Form, Input, Select} from 'antd';
 import React, {useEffect, useState, useRef, useCallback} from 'react';
 import ReactECharts from "echarts-for-react";
 import {useModel} from "@@/exports";
@@ -11,6 +11,46 @@ import { csvToTable } from '@/utils/csv';
  *
  * @constructor
  */
+/**
+ * Markdown 简易渲染组件
+ * 将常见的 Markdown 语法转为 HTML，无需额外依赖
+ */
+const MarkdownContent: React.FC<{ text?: string }> = ({ text }) => {
+  if (!text) return <span>暂无分析结论</span>;
+
+  // 清理：去掉 AI 冗余前缀和首尾花括号
+  let cleaned = text.trim();
+  cleaned = cleaned.replace(/^结论[：:]\s*/, '');
+  if (cleaned.startsWith('{') && cleaned.endsWith('}')) {
+    cleaned = cleaned.slice(1, -1).trim();
+  }
+
+  const html = cleaned
+    // 标题：# ## ###
+    .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+    .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+    .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+    // 粗体：**text**
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    // 斜体：*text*
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    // 无序列表：- item
+    .replace(/^- (.*$)/gim, '<li>$1</li>')
+    // 有序列表：1. item
+    .replace(/^\d+\. (.*$)/gim, '<li>$1</li>')
+    // 段落：空行分隔
+    .replace(/\n\n/g, '</p><p>')
+    // 换行
+    .replace(/\n/g, '<br>');
+
+  return (
+    <div
+      style={{ color: '#ccc' }}
+      dangerouslySetInnerHTML={{ __html: `<p>${html}</p>` }}
+    />
+  );
+};
+
 const MyChartPage: React.FC = () => {
 
   //把初始条件分离出来，便于后面恢复初始条件
@@ -51,6 +91,16 @@ const MyChartPage: React.FC = () => {
   const [retryLoading, setRetryLoading] = useState<boolean>(false);
   // 当前正在重试的图表ID
   const [retryingId, setRetryingId] = useState<number | null>(null);
+
+  // 重新生成按钮加载状态
+  const [regenerateLoading, setRegenerateLoading] = useState<boolean>(false);
+  const [regeneratingId, setRegeneratingId] = useState<number | null>(null);
+
+  // 编辑图表弹窗
+  const [isEditModalVisible, setIsEditModalVisible] = useState<boolean>(false);
+  const [editingChart, setEditingChart] = useState<API.Chart | null>(null);
+  const [editingLoading, setEditingLoading] = useState<boolean>(false);
+  const [editForm] = Form.useForm();
 
   // === 自动轮询相关状态 ===
   const [autoRefresh, setAutoRefresh] = useState<boolean>(true);
@@ -220,6 +270,97 @@ const MyChartPage: React.FC = () => {
     });
   };
 
+  /**
+   * 点击"编辑"按钮时调用，弹出编辑弹窗
+   */
+  const handleEditChart = async (id?: number) => {
+    if (!id) {
+      message.error('图表 ID 不存在');
+      return;
+    }
+    try {
+      const res = await getChartByIdUsingGet({ id });
+      if (res?.data) {
+        setEditingChart(res.data);
+        editForm.setFieldsValue({
+          name: res.data.name,
+          goal: res.data.goal,
+          chartType: res.data.chartType,
+        });
+        setIsEditModalVisible(true);
+      } else {
+        message.error('获取图表详情失败');
+      }
+    } catch (e: any) {
+      message.error('获取图表详情失败，' + e?.message);
+    }
+  };
+
+  /**
+   * 提交编辑表单
+   */
+  const handleEditSubmit = async () => {
+    try {
+      const values = await editForm.validateFields();
+      if (!editingChart?.id) return;
+      setEditingLoading(true);
+      const res = await editChartUsingPost({
+        id: editingChart.id,
+        name: values.name,
+        goal: values.goal,
+        chartType: values.chartType,
+      });
+      if (res.data) {
+        message.success('编辑成功');
+        setIsEditModalVisible(false);
+        loadData();
+      } else {
+        message.error('编辑失败');
+      }
+    } catch (e: any) {
+      if (e?.message) {
+        message.error('编辑失败，' + e.message);
+      }
+    } finally {
+      setEditingLoading(false);
+    }
+  };
+
+  /**
+   * 点击"重新生成"按钮时调用，复用 retry 接口将图表重新提交到 MQ
+   */
+  const handleRegenerateChart = async (id?: number) => {
+    if (!id) {
+      message.error('图表 ID 不存在');
+      return;
+    }
+    Modal.confirm({
+      title: '确认重新生成',
+      content: '重新生成将覆盖当前图表结果，确定继续吗？',
+      okText: '确认重新生成',
+      okButtonProps: { danger: true },
+      cancelText: '取消',
+      onOk: async () => {
+        setRegenerateLoading(true);
+        setRegeneratingId(id);
+        try {
+          const res = await retryFailedChartUsingPost({ id });
+          if (res.data) {
+            message.success('重新生成任务已提交');
+            loadData();
+          } else {
+            message.error('重新生成失败');
+          }
+        } catch (e: any) {
+          message.error('重新生成失败，' + e?.message);
+        } finally {
+          setRegenerateLoading(false);
+          setRegeneratingId(null);
+        }
+      },
+    });
+  };
+
   return (
     // 把页面内容指定一个类名add-chart
     <div className="my-chart-page">
@@ -350,12 +491,19 @@ const MyChartPage: React.FC = () => {
                       <div style={{ marginBottom: 16 }}>
                         <span style={{ fontWeight: 'bold' }}>分析结论：</span>
                         <div style={{ marginTop: 8, lineHeight: 1.8 }}>
-                          {item.genResult || '暂无分析结论'}
+                          <MarkdownContent text={item.genResult} />
                         </div>
                       </div>
 
                       {/* 右上角按钮组 */}
                       <div style={{ position: 'absolute', right: 12, top: 12, zIndex: 1000, display: 'flex', gap: 8 }}>
+                        <Button size="small" onClick={() => handleEditChart(item.id as number)}>
+                          编辑
+                        </Button>
+                        <Button size="small" onClick={() => handleRegenerateChart(item.id as number)}
+                                loading={regenerateLoading && regeneratingId === (item.id as number)}>
+                          重新生成
+                        </Button>
                         <Button size="small" onClick={() => handleDeleteChart(item.id as number)} danger>
                           删除
                         </Button>
@@ -432,6 +580,39 @@ const MyChartPage: React.FC = () => {
             )}
           </>
         )}
+      </Modal>
+
+      {/* 编辑图表弹窗 */}
+      <Modal
+        title="编辑图表"
+        open={isEditModalVisible}
+        onCancel={() => {
+          setIsEditModalVisible(false);
+          editForm.resetFields();
+        }}
+        onOk={handleEditSubmit}
+        confirmLoading={editingLoading}
+        destroyOnClose
+        width={600}
+      >
+        <Form form={editForm} layout="vertical" style={{ marginTop: 24 }}>
+          <Form.Item name="name" label="图表名称" rules={[{ required: true, message: '请输入图表名称' }]}>
+            <Input placeholder="请输入图表名称" />
+          </Form.Item>
+          <Form.Item name="goal" label="分析目标" rules={[{ required: true, message: '请输入分析目标' }]}>
+            <TextArea rows={4} placeholder="请输入分析目标" />
+          </Form.Item>
+          <Form.Item name="chartType" label="图表类型">
+            <Select placeholder="请选择图表类型" allowClear>
+              <Select.Option value="bar">柱状图</Select.Option>
+              <Select.Option value="pie">饼图</Select.Option>
+              <Select.Option value="line">折线图</Select.Option>
+              <Select.Option value="scatter">散点图</Select.Option>
+              <Select.Option value="heatmap">热力图</Select.Option>
+              <Select.Option value="radar">雷达图</Select.Option>
+            </Select>
+          </Form.Item>
+        </Form>
       </Modal>
     </div>
   );

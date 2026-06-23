@@ -746,11 +746,7 @@ public class ChartController {
             // 如果用户既不是图表所有者也不是管理员，抛出"无权限"异常
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
         }
-        // 核心校验：只有当图表的status为failed时，才允许重试
-        if (!"failed".equals(oldChart.getStatus()) && !"wait".equals(oldChart.getStatus())) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "只有等待中或失败状态的图表才能重试");
-        }
-        // 将图表的status重新更新为wait，清空之前的错误信息execMessage
+        // 允许所有状态的图表重新生成（failed/wait/succeed 均可）
         Chart updateChart = new Chart();
         updateChart.setId(id);
         updateChart.setStatus("wait");
@@ -766,7 +762,7 @@ public class ChartController {
     }
 
     /**
-     * 清洗 AI 输出结果，去掉首尾单引号/反引号/Markdown 代码块标记
+     * 清洗 AI 输出结果，去掉首尾单引号/反引号/Markdown 代码块/花括号
      */
     private String cleanAiOutput(String raw) {
         String s = raw.trim();
@@ -778,6 +774,10 @@ public class ChartController {
         }
         while (s.length() > 0 && (s.endsWith("'") || s.endsWith("`") || s.endsWith("\""))) {
             s = s.substring(0, s.length() - 1);
+        }
+        // 去掉首尾的花括号包裹（AI 有时会误用 {} 包裹文本）
+        if (s.length() > 1 && s.startsWith("{") && s.endsWith("}")) {
+            s = s.substring(1, s.length() - 1).trim();
         }
         return s.trim();
     }
