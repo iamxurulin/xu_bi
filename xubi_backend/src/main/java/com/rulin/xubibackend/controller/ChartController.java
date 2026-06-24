@@ -287,9 +287,6 @@ public class ChartController {
         if (chartEditRequest == null || chartEditRequest.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        // 创建图表对象并复制请求参数
-        Chart chart = new Chart();
-        BeanUtils.copyProperties(chartEditRequest, chart);
         // 获取当前登录用户
         User loginUser = userService.getLoginUser(request);
         long id = chartEditRequest.getId();
@@ -300,7 +297,13 @@ public class ChartController {
         if (!oldChart.getUserId().equals(loginUser.getId()) && !userService.isAdmin(loginUser)) {
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
         }
-        boolean result = chartService.updateById(chart);
+        // 只更新前端传入的字段，保留 chartData / genChart / genResult 不被清空
+        Chart updateChart = new Chart();
+        updateChart.setId(id);
+        updateChart.setName(chartEditRequest.getName());
+        updateChart.setGoal(chartEditRequest.getGoal());
+        updateChart.setChartType(chartEditRequest.getChartType());
+        boolean result = chartService.updateById(updateChart);
         return ResultUtils.success(result);
     }
 

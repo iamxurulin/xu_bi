@@ -45,7 +45,7 @@ const MarkdownContent: React.FC<{ text?: string }> = ({ text }) => {
 
   return (
     <div
-      style={{ color: '#ccc' }}
+      style={{ color: '#333' }}
       dangerouslySetInnerHTML={{ __html: `<p>${html}</p>` }}
     />
   );
@@ -600,7 +600,7 @@ const MyChartPage: React.FC = () => {
             <Input placeholder="请输入图表名称" />
           </Form.Item>
           <Form.Item name="goal" label="分析目标" rules={[{ required: true, message: '请输入分析目标' }]}>
-            <TextArea rows={4} placeholder="请输入分析目标" />
+            <Input.TextArea rows={4} placeholder="请输入分析目标" />
           </Form.Item>
           <Form.Item name="chartType" label="图表类型">
             <Select placeholder="请选择图表类型" allowClear>
