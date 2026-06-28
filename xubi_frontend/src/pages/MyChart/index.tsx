@@ -21,8 +21,9 @@ const MarkdownContent: React.FC<{ text?: string }> = ({ text }) => {
   // 清理：去掉 AI 冗余前缀和首尾花括号
   let cleaned = text.trim();
   cleaned = cleaned.replace(/^结论[：:]\s*/, '');
-  if (cleaned.startsWith('{') && cleaned.endsWith('}')) {
-    cleaned = cleaned.slice(1, -1).trim();
+  // 去掉开头多余的单个 { 字符
+  if (cleaned.startsWith('{')) {
+    cleaned = cleaned.slice(1).trim();
   }
 
   const html = cleaned

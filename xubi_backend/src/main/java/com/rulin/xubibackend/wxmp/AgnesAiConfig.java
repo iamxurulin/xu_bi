@@ -11,7 +11,7 @@ import org.springframework.context.annotation.Configuration;
 @ConfigurationProperties(prefix = "agnes.ai")
 @Data
 public class AgnesAiConfig {
-    private String apiKey = "REMOVED_API_KEY";
-    private String baseUrl = "https://apihub.agnes-ai.com/v1";
-    private String modelName = "agnes-2.0-flash";
+    private String apiKey;
+    private String baseUrl;
+    private String modelName;
 }
