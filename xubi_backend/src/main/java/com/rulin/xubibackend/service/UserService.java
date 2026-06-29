@@ -9,7 +9,6 @@ import com.rulin.xubibackend.model.vo.UserVO;
 
 import java.util.List;
 import javax.servlet.http.HttpServletRequest;
-import me.chanjar.weixin.common.bean.WxOAuth2UserInfo;
 
 /**
  * 用户服务接口，继承自IService<User>，提供用户相关的业务操作

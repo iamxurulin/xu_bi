@@ -6,7 +6,6 @@ import com.rulin.xubibackend.common.BaseResponse;
 import com.rulin.xubibackend.common.DeleteRequest;
 import com.rulin.xubibackend.common.ErrorCode;
 import com.rulin.xubibackend.common.ResultUtils;
-import com.rulin.xubibackend.config.WxOpenConfig;
 import com.rulin.xubibackend.constant.UserConstant;
 import com.rulin.xubibackend.exception.BusinessException;
 import com.rulin.xubibackend.exception.ThrowUtils;
@@ -29,9 +28,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import lombok.extern.slf4j.Slf4j;
-import me.chanjar.weixin.common.bean.WxOAuth2UserInfo;
-import me.chanjar.weixin.common.bean.oauth2.WxOAuth2AccessToken;
-import me.chanjar.weixin.mp.api.WxMpService;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.util.DigestUtils;
@@ -58,16 +54,7 @@ public class UserController {
     @Resource
     private UserService userService;
 
-    /**
-     * 微信开放平台配置
-     * 用于处理微信相关的配置信息
-     */
-    @Resource
-    private WxOpenConfig wxOpenConfig;
-
     // region 登录相关
-
-
     /**
      * 用户注册接口
      *

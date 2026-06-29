@@ -765,7 +765,7 @@ public class ChartController {
     }
 
     /**
-     * 清洗 AI 输出结果，去掉首尾单引号/反引号/Markdown 代码块/花括号
+     * 清洗 AI 输出结果，去掉首尾反引号/Markdown 代码块
      */
     private String cleanAiOutput(String raw) {
         String s = raw.trim();
@@ -777,10 +777,6 @@ public class ChartController {
         }
         while (s.length() > 0 && (s.endsWith("'") || s.endsWith("`") || s.endsWith("\""))) {
             s = s.substring(0, s.length() - 1);
-        }
-        // 去掉首尾的花括号包裹（AI 有时会误用 {} 包裹文本）
-        if (s.length() > 1 && s.startsWith("{") && s.endsWith("}")) {
-            s = s.substring(1, s.length() - 1).trim();
         }
         return s.trim();
     }

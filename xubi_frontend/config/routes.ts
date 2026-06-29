@@ -16,7 +16,6 @@ export default [
       {path: '/admin/sub-page', component: './Admin'},
     ],
   },
-  {path: '/', redirect: '/welcome'},
   {path: '*', layout: false, component: './404'},
   {
     path: '/user',
@@ -34,7 +33,4 @@ export default [
       {component: '404', path: '/user/*'},
     ],
   },
-
-  {path: '/', redirect: '/dashboard/analysis'},
-  {component: '404', path: '/*'},
 ];
